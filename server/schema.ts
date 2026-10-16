@@ -19,6 +19,13 @@ export const members = pgTable("members", {
   tokens: text("tokens"),
   connected: boolean("connected").notNull().default(true),
   shareToken: text("share_token").unique(),
+  sharePolicy: jsonb("share_policy").$type<{
+    kinds: string[];
+    start?: string;
+    end?: string;
+    expires?: string;
+  }>(),
+  dataRevision: integer("data_revision").notNull().default(0),
   createdAt: time("created_at").notNull().defaultNow(),
   lastSync: time("last_sync"),
   lastRecent: time("last_recent"),

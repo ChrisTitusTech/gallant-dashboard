@@ -1,4 +1,8 @@
-import { explorationHistory } from "./explore.js";
+import {
+  createHistoryCache,
+  completeness,
+  type SharePolicy,
+} from "./history.js";
 import Fastify, { type FastifyRequest } from "fastify";
 import cookie from "@fastify/cookie";
 import rateLimit from "@fastify/rate-limit";
@@ -24,9 +28,10 @@ import {
   encrypt,
   hash,
   randomToken,
+  redactedPath,
   validSignature,
 } from "./security.js";
-import { analyticsPayload, lifetimeStats } from "./analytics.js";
+import { sleepAnalytics, recoveryAnalytics } from "./analytics.js";
 import { bucket, daily, makeDetails, summarize } from "./domain.js";
 import { enqueue, enqueueSync } from "./sync.js";
 import {
@@ -48,6 +53,7 @@ const safeDate = z
 const dateQuery = z.object({
   start: safeDate.optional(),
   end: safeDate.optional(),
+  context: z.string().max(200).optional(),
 });
 const cookieOptions = {
   path: "/",
@@ -76,21 +82,37 @@ async function requireMember(request: FastifyRequest) {
   if (!member) throw fail(401, "Sign in to view your dashboard.");
   return member;
 }
-async function dashboard(member: typeof members.$inferSelect, query: unknown) {
-  const all = await db
-    .select()
-    .from(records)
-    .where(and(eq(records.memberId, member.id), eq(records.deleted, false)));
-  const details = makeDetails(all);
-  const history = details.filter((d) => !["body", "profile"].includes(d.kind));
-  const dates = history.map((d) => d.date).sort();
+const cachedHistory = createHistoryCache();
+async function dashboard(
+  member: typeof members.$inferSelect,
+  query: unknown,
+  policy?: SharePolicy | null,
+) {
   const {
     start = new Date(Date.now() - 29 * 86400000).toISOString().slice(0, 10),
     end = new Date().toISOString().slice(0, 10),
+    context,
   } = dateQuery.parse(query);
   const span = (Date.parse(end) - Date.parse(start)) / 86400000 + 1;
   if (span < 1 || span > 20000)
     throw fail(400, "Select a valid date range of at most 20,000 days.");
+  const contextVersion =
+    member.dataRevision +
+    "-" +
+    hash(member.id + JSON.stringify(policy ?? null));
+  const saved = await cachedHistory(
+    member.id + ":" + hash(JSON.stringify(policy ?? null)),
+    member.dataRevision,
+    () =>
+      db
+        .select()
+        .from(records)
+        .where(
+          and(eq(records.memberId, member.id), eq(records.deleted, false)),
+        ),
+    policy,
+  );
+  const { details, history } = saved;
   const previousEnd = new Date(Date.parse(start) - 86400000)
     .toISOString()
     .slice(0, 10);
@@ -102,14 +124,32 @@ async function dashboard(member: typeof members.$inferSelect, query: unknown) {
   const previous = days.filter((d) => d.date < start);
   const chart = bucket(current);
   return {
-    analytics: analyticsPayload(history, start, end),
-    lifetime: lifetimeStats(history),
-    exploration: explorationHistory(history),
+    contextVersion,
+    completeness: completeness(
+      history,
+      current.map((d) => d.date),
+    ),
+    analytics: {
+      sleep: sleepAnalytics(history, start, end),
+      recovery: recoveryAnalytics(
+        daily(
+          history,
+          new Date(Date.parse(start) - 28 * 86400000)
+            .toISOString()
+            .slice(0, 10),
+          end,
+        ),
+      ).filter((d) => d.date >= start),
+      ...(context === contextVersion ? {} : { calendar: saved.calendar }),
+    },
+    ...(context === contextVersion
+      ? {}
+      : { lifetime: saved.lifetime, exploration: saved.exploration }),
     name: member.name,
     start,
     end,
-    earliest: dates[0] ?? null,
-    latest: dates.at(-1) ?? null,
+    earliest: saved.earliest,
+    latest: saved.latest,
     lastSync: member.lastSync,
     summary: summarize(current),
     previous: summarize(previous),
@@ -141,7 +181,7 @@ export async function buildApp(
           serializers: {
             req: (r) => ({
               method: r.method,
-              path: r.url?.split("?")[0],
+              path: redactedPath(r.url ?? ""),
               remoteAddress: r.ip,
             }),
           },
@@ -160,7 +200,14 @@ export async function buildApp(
   });
   app.addHook("onRequest", async (req, reply) => {
     reply
-      .header("Cache-Control", "no-store")
+      .header(
+        "Cache-Control",
+        /^\/assets\/[A-Za-z0-9_-]+-[A-Za-z0-9_-]+\.(?:js|css)$/.test(
+          req.url.split("?")[0],
+        )
+          ? "public, max-age=31536000, immutable"
+          : "no-store",
+      )
       .header("X-Content-Type-Options", "nosniff")
       .header("Referrer-Policy", "no-referrer")
       .header("X-Frame-Options", "DENY");
@@ -179,6 +226,10 @@ export async function buildApp(
       if (!req.headers["content-type"]?.startsWith("application/json"))
         throw fail(415, "JSON is required.");
     }
+  });
+  app.addHook("onSend", async (_req, reply, payload) => {
+    if (reply.statusCode >= 400) reply.header("Cache-Control", "no-store");
+    return payload;
   });
   app.setErrorHandler((error, _req, reply) => {
     if (error instanceof z.ZodError)
@@ -356,6 +407,7 @@ export async function buildApp(
       name: m.name,
       connected: m.connected,
       shareUrl: m.shareToken ? origin + "/share/" + m.shareToken : null,
+      sharePolicy: m.sharePolicy,
     };
   });
   app.get("/api/me/dashboard", async (req) =>
@@ -376,7 +428,17 @@ export async function buildApp(
       .where(eq(jobs.memberId, m.id))
       .orderBy(desc(jobs.updatedAt))
       .limit(100);
-    return { connected: m.connected, lastSync: m.lastSync, jobs: rows };
+    const lastSuccessful = await db
+      .select({ kind: jobs.kind, at: sql<string>`max(${jobs.updatedAt})` })
+      .from(jobs)
+      .where(and(eq(jobs.memberId, m.id), eq(jobs.status, "done")))
+      .groupBy(jobs.kind);
+    return {
+      connected: m.connected,
+      lastSync: m.lastSync,
+      jobs: rows,
+      lastSuccessful,
+    };
   });
   app.post(
     "/api/me/sync",
@@ -402,13 +464,33 @@ export async function buildApp(
   );
   app.post("/api/me/sharing", async (req) => {
     const m = await requireMember(req);
-    const { enabled } = z.object({ enabled: z.boolean() }).parse(req.body);
+    const { enabled, policy } = z
+      .object({
+        enabled: z.boolean(),
+        policy: z
+          .object({
+            kinds: z
+              .array(z.enum(["cycle", "sleep", "recovery", "workout", "body"]))
+              .min(1),
+            start: safeDate.optional(),
+            end: safeDate.optional(),
+            expires: z.string().datetime().optional(),
+          })
+          .refine((p) => !p.start || !p.end || p.start <= p.end)
+          .optional(),
+      })
+      .parse(req.body);
+    if (enabled && policy?.expires && Date.parse(policy.expires) <= Date.now())
+      throw fail(400, "Expiration must be in the future.");
     if (enabled && !m.connected)
       throw fail(409, "Reconnect WHOOP before enabling sharing.");
     const shareToken = enabled ? (m.shareToken ?? randomToken()) : null;
     const updated = await db
       .update(members)
-      .set({ shareToken })
+      .set({
+        shareToken,
+        ...(enabled && policy ? { sharePolicy: policy } : {}),
+      })
       .where(
         and(
           eq(members.id, m.id),
@@ -429,7 +511,12 @@ export async function buildApp(
       .from(members)
       .where(eq(members.shareToken, token));
     if (!m) throw fail(404, "This shared dashboard is unavailable.");
-    return dashboard(m, req.query);
+    if (
+      m.sharePolicy?.expires &&
+      Date.parse(m.sharePolicy.expires) <= Date.now()
+    )
+      throw fail(404, "This shared dashboard is unavailable.");
+    return dashboard(m, req.query, m.sharePolicy);
   });
   app.get("/api/me/export", async (req, reply) => {
     const m = await requireMember(req);

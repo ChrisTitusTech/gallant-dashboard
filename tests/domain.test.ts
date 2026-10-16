@@ -12,6 +12,7 @@ import {
 } from "../server/domain.js";
 import {
   csvCell,
+  redactedPath,
   decrypt,
   encrypt,
   validSignature,
@@ -271,4 +272,19 @@ test("recovery links anchor sleeps without cycle IDs, while absent main sleep ke
   ];
   assert.ok(makeDetails(records).every((d) => d.date === "2026-03-02"));
   assert.equal(makeDetails(records.slice(0, 1))[0].date, "2026-03-01");
+});
+
+test("request log paths redact share tokens and query credentials", () => {
+  assert.equal(
+    redactedPath("/share/secret-token?code=secret"),
+    "/share/[redacted]",
+  );
+  assert.equal(
+    redactedPath("/api/shared/secret-token?start=2026-01-01"),
+    "/api/shared/[redacted]",
+  );
+  assert.equal(
+    redactedPath("/callback?code=secret&state=private"),
+    "/callback",
+  );
 });

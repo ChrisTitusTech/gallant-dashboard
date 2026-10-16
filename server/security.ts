@@ -55,3 +55,8 @@ export function csvCell(value: unknown) {
   if (/^[=+@\-\t\r]/.test(s)) s = "'" + s;
   return '"' + s.replaceAll('"', '""') + '"';
 }
+
+export const redactedPath = (url: string) =>
+  url
+    .split("?")[0]
+    .replace(/^(\/(?:api\/)?share(?:d)?\/)[^/]+/, "$1[redacted]");

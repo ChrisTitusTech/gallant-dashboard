@@ -558,3 +558,105 @@ test(
     }
   },
 );
+
+test("context reuse invalidates on edits and deletion; restricted shares enforce all projections and expiry", async () => {
+  const get = async (extra = "") =>
+    (
+      await app.inject({
+        url: "/api/me/dashboard?start=2026-01-01&end=2026-01-03" + extra,
+        headers: { cookie: cookieA },
+      })
+    ).json();
+  const initial = await get();
+  const reused = await get("&context=" + initial.contextVersion);
+  assert.equal(reused.lifetime, undefined);
+  assert.equal(reused.exploration, undefined);
+  assert.equal(reused.analytics.calendar, undefined);
+  assert.equal(reused.summary.strain.value, 12);
+  await upsert(db, memberA, "cycle", { ...cycle(101), score: { strain: 5 } });
+  const changed = await get("&context=" + initial.contextVersion);
+  assert.equal(changed.lifetime.metrics.strain.average, 5);
+  assert.notEqual(changed.contextVersion, initial.contextVersion);
+  await db
+    .update(records)
+    .set({ deleted: true })
+    .where(eq(records.memberId, memberA));
+  const removed = await get("&context=" + changed.contextVersion);
+  assert.equal(removed.lifetime.metrics.strain.count, 0);
+  await upsert(db, memberA, "cycle", cycle(101));
+  await upsert(db, memberA, "sleep", {
+    id: "s",
+    cycle_id: 101,
+    start: "2026-01-02T08:00:00Z",
+    end: "2026-01-02T14:00:00Z",
+    score_state: "SCORED",
+    score: { sleep_performance_percentage: 95 },
+  });
+  const sharedResult = await app.inject({
+    method: "POST",
+    url: "/api/me/sharing",
+    headers: { cookie: cookieA, origin },
+    payload: {
+      enabled: true,
+      policy: {
+        kinds: ["sleep"],
+        start: "2026-01-02",
+        end: "2026-01-02",
+        expires: new Date(Date.now() + 86400000).toISOString(),
+      },
+    },
+  });
+  assert.equal(sharedResult.statusCode, 200);
+  const token = sharedResult.json().shareUrl.split("/").at(-1);
+  const response = await app.inject(
+    "/api/shared/" + token + "?start=2026-01-01&end=2026-01-03",
+  );
+  const view = response.json();
+  assert.equal(view.summary.strain.value, null);
+  assert.equal(view.lifetime.metrics.strain.count, 0);
+  assert.equal(view.summary.sleep.value, 95);
+  assert.equal(view.body, null);
+  assert.ok(
+    view.details.every(
+      (d: any) => d.kind === "sleep" && d.date === "2026-01-02",
+    ),
+  );
+  assert.ok(
+    view.exploration.every(
+      (d: any) => d.strain === null && d.recovery === null,
+    ),
+  );
+  await db
+    .update(members)
+    .set({ sharePolicy: { kinds: ["sleep"], expires: "2020-01-01T00:00:00Z" } })
+    .where(eq(members.id, memberA));
+  assert.equal((await app.inject("/api/shared/" + token)).statusCode, 404);
+});
+
+test("hashed assets cache immutably while errors and personal responses remain uncached", async () => {
+  const staticApp = await buildApp({ serveStatic: true });
+  try {
+    const { readdir } = await import("node:fs/promises");
+    const asset = (await readdir("dist/web/assets")).find((n) =>
+      n.endsWith(".js"),
+    )!;
+    const response = await staticApp.inject("/assets/" + asset);
+    assert.equal(response.statusCode, 200);
+    assert.equal(
+      response.headers["cache-control"],
+      "public, max-age=31536000, immutable",
+    );
+    assert.equal(
+      (await staticApp.inject("/assets/missing-123.js")).headers[
+        "cache-control"
+      ],
+      "no-store",
+    );
+    assert.equal(
+      (await staticApp.inject("/api/me/dashboard")).headers["cache-control"],
+      "no-store",
+    );
+  } finally {
+    await staticApp.close();
+  }
+});
