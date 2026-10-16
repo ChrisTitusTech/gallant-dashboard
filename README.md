@@ -34,6 +34,11 @@ Setup, validation, deployment, backup, restore, and API instructions follow belo
 
 ## Features
 
+- Local-calendar date defaults, keyboard-accessible mobile navigation, and bookmarkable views, filters, and comparison years.
+- Data completeness distinguishes missing, pending, unscored, and scored days; successful imports are shown by data type.
+- Selective sharing applies metric groups, date boundaries, and optional expiration on the server. Body measurements are excluded from new links by default; existing links keep their existing scope until edited.
+- Full-history calculations are reused using database revisions. Range requests send a context version to avoid downloading unchanged lifetime/history data.
+
 - Workout explorer with sport, duration, strain, and heart-rate-zone filters, weekly hours, sortable paginated records, and daily details.
 - Personal correlations with scatter plots, paired-day counts, and same-cycle or next-calendar-day alignment. Pearson coefficients require ten pairs and variation in both metrics; they describe association, not causation.
 - Year-over-year monthly comparisons for strain, sleep, recovery, sleep hours, HRV, and resting heart rate. Only matching scored month/day observations contribute to each pair of averages.
@@ -159,7 +164,7 @@ curl -fsS http://127.0.0.1:3100/ready
 
 Readiness checks database connectivity and a worker heartbeat no older than three minutes. Failed imports appear in member sync status and worker logs; the account page can retry a complete import. Jobs resume after a worker restart. Expired sessions, OAuth states, webhook receipts, and completed job history are cleaned automatically.
 
-Backups are root-readable PostgreSQL custom dumps under `/var/backups/gallant`, verified with `pg_restore --list`. `restore-test.sh` creates a unique scratch database, restores the full dump, checks tables, and drops only that scratch database. Local backups protect against application mistakes, not loss of the VPS; off-server backup transport is not configured.
+Backups are root-readable PostgreSQL custom dumps under `/var/backups/gallant`, verified with `pg_restore --list`. `restore-test.sh` creates a unique scratch database, restores the full dump, checks tables, and drops only that scratch database. Local backups protect against application mistakes, not loss of the VPS. Encrypted off-server transport is available but requires the destination and recipient configuration below.
 
 A production restore is a separate destructive operation: stop both application services, take a safety backup, restore the selected dump into a fresh database, validate it, change the protected `DATABASE_URL` to that restored database, then restart and verify readiness. Keep the original database until validation completes. After a historical restore, invalidate restored sessions and sharing links and reapply any account deletions made since the backup before reopening public access; restoring a dump alone can resurrect deleted data.
 
@@ -183,3 +188,37 @@ Official references: [API](https://developer.whoop.com/api/), [OAuth](https://de
 ## License
 
 [MIT](LICENSE) - Copyright (c) 2026 Chris Titus.
+
+## Backup monitoring and off-server setup
+
+Deployment enables `gallant-monitor.timer` (15-minute checks) and `gallant-restore-check.timer` (Sunday 04:00 UTC scratch restore). Run a first verification with:
+
+```bash
+systemctl start gallant-restore-check.service
+systemctl start gallant-monitor.service
+cat /var/lib/gallant-ops/status
+```
+
+The monitor reports readiness failures, missing backups older than 36 hours, missing restore verification older than eight days, and connected accounts with failed imports or no sync in 48 hours. It deliberately reports an incomplete configuration when off-server backup is absent. Generic status contains no member names, tokens, or health measurements.
+
+To activate encrypted off-server copies, install `age` and `rsync` on the VPS. Generate and securely retain an age private identity **off the VPS**; only its public recipient belongs in the root-owned, mode-600 `/etc/gallant-backup-offsite.env`:
+
+```bash
+BACKUP_HOST=backup-user@backup-host
+BACKUP_DIR=/absolute/existing/backup/directory
+BACKUP_RECIPIENT=age1PUBLIC_RECIPIENT
+```
+
+Provision SSH authentication and verify the backup host key normally. The directory must already exist; this uploader accepts an absolute path without spaces or shell metacharacters. Each successful local backup encrypts the dump to a temporary file, uploads only ciphertext using SSH/rsync, and records success only after upload completes. Upload failure returns a failure while retaining the local dump. Off-server retention must be configured at the destination; the uploader does not delete remote backups.
+
+```bash
+/opt/gallant-dashboard/current/deploy/offsite.sh /var/backups/gallant/gallant-TIMESTAMP.dump
+# On a trusted recovery machine:
+age -d -i /secure/path/to/age-identity -o restored.dump gallant-TIMESTAMP.dump.age
+```
+
+For alert delivery, provision an executable root-owned `/etc/gallant-alert` that is not group/world-writable. It receives generic status text on stdin, runs only when status changes, and must return nonzero on delivery failure so the next timer retries. Delivery is not active until a destination and hook are configured. Monitoring remains visible locally via systemd and `/var/lib/gallant-ops/status`.
+
+Do not roll back to a release that predates selective-sharing enforcement while restricted links are active. The activation script blocks such an automatic rollback and stops the web service rather than exposing excluded data. The schema additions are otherwise backward compatible.
+
+Hashed JavaScript/CSS assets use immutable one-year caching; HTML, health data, sharing APIs, and error responses remain uncached. Sharing tokens and query strings are omitted from application request logs. View URLs contain filter settings, never authorization credentials.

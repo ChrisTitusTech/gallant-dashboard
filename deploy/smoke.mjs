@@ -23,6 +23,29 @@ try {
       "/auth/whoop",
     );
     await page.goto(base + "/demo", { waitUntil: "networkidle" });
+    const asset = await page
+      .locator('script[src*="/assets/"]')
+      .first()
+      .getAttribute("src");
+    const assetResponse = await page.request.get(base + asset);
+    assert.equal(
+      assetResponse.headers()["cache-control"],
+      "public, max-age=31536000, immutable",
+    );
+    if (label === "mobile") {
+      await page.keyboard.press("Tab");
+      assert.equal(
+        await page.evaluate(
+          () => !!globalThis.document.activeElement?.closest(".sidebar"),
+        ),
+        false,
+      );
+      const toggle = page.getByRole("button", { name: "Open navigation" });
+      await toggle.click();
+      await expect(toggle).toHaveAttribute("aria-expanded", "true");
+      await page.keyboard.press("Escape");
+      await expect(toggle).toBeFocused();
+    }
     await page
       .getByRole("heading", { name: "Your effort. Your rhythm." })
       .waitFor();
@@ -130,6 +153,15 @@ try {
     );
     await page.close();
   }
+  const context = await browser.newContext({ timezoneId: "America/Chicago" });
+  const evening = await context.newPage();
+  await evening.clock.setFixedTime(new Date("2026-10-17T01:00:00Z"));
+  await evening.goto(base + "/demo");
+  await expect(evening.getByLabel("End date")).toHaveValue("2026-10-16");
+  await context.close();
+  console.log(
+    "Local-date boundary, immutable assets, and mobile focus checks passed.",
+  );
 } finally {
   await browser.close();
 }

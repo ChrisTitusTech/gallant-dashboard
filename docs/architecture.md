@@ -36,7 +36,7 @@ The worker imports cycles, sleep, recovery, and workouts through paginated API r
 
 ## Data boundaries
 
-Sessions and every private query are scoped to a member. Public sharing is opt-in and revocable; public responses project allowed dashboard fields rather than exposing raw payloads or account credentials. Authenticated exports can include raw WHOOP data. Dashboard and sharing responses are not cached.
+Sessions and every private query are scoped to a member. Public sharing is opt-in and revocable; public responses project allowed dashboard fields rather than exposing raw payloads or account credentials. Authenticated exports can include raw WHOOP data. Dashboard and sharing HTTP responses remain uncached. A bounded five-minute process-local history cache is keyed by member, sharing policy, and a database revision updated by record triggers. Each request still checks authentication or sharing validity. Matching context versions omit unchanged lifetime, calendar, and exploration fields from range responses; the client retains the prior context. Share policies filter source details before any summaries, calendars, correlations, or lifetime calculations.
 
 Missing scores remain gaps. Chart aggregation averages daily strain rather than adding it. Cycle relationships and recorded timezone offsets determine daily grouping. An associated completed main sleep anchors its cycle to the local wake date, including sleeps linked through recovery. Without main sleep, the stored local cycle date is the fallback. Related recovery, sleep, and interval-matched workouts use the same projected date; naps cannot move the cycle. Raw records remain unchanged.
 

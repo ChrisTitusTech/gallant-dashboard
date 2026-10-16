@@ -26,11 +26,12 @@ node --env-file=/etc/gallant-dashboard.env dist/server/server/migrate.js
 previous=$(readlink -e /opt/gallant-dashboard/current || true)
 ln -sfn "$release" /opt/gallant-dashboard/current.next
 mv -Tf /opt/gallant-dashboard/current.next /opt/gallant-dashboard/current
-install -m 644 deploy/gallant-web.service deploy/gallant-worker.service deploy/gallant-backup.service deploy/gallant-backup.timer /etc/systemd/system/
+install -m 644 deploy/gallant-web.service deploy/gallant-worker.service deploy/gallant-backup.service deploy/gallant-backup.timer deploy/gallant-monitor.service deploy/gallant-monitor.timer deploy/gallant-restore-check.service deploy/gallant-restore-check.timer /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable gallant-web gallant-worker gallant-backup.timer
 systemctl restart gallant-web gallant-worker
 systemctl start gallant-backup.timer
+systemctl enable --now gallant-monitor.timer gallant-restore-check.timer
 ready=false
 for _attempt in {1..30}; do
 	if curl -fsS --max-time 5 http://127.0.0.1:3100/ready >/dev/null; then
@@ -42,6 +43,14 @@ done
 if [[ $ready != true ]]; then
 	printf 'Release failed readiness; restoring previous application release.\n' >&2
 	if [[ -n $previous && -d $previous ]]; then
+		if [[ ! -f "$previous/deploy/share-policy-v1" ]]; then
+			restricted=$(docker exec gallant-postgres psql -U gallant -d gallant -Atqc "SELECT count(*) FROM members WHERE share_token IS NOT NULL AND share_policy IS NOT NULL")
+			if [[ "$restricted" != 0 ]]; then
+				systemctl stop gallant-web
+				printf 'Unsafe rollback blocked: prior release ignores active sharing restrictions.\n' >&2
+				exit 1
+			fi
+		fi
 		ln -sfn "$previous" /opt/gallant-dashboard/current.next
 		mv -Tf /opt/gallant-dashboard/current.next /opt/gallant-dashboard/current
 		systemctl restart gallant-web gallant-worker

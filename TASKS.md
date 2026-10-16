@@ -80,3 +80,13 @@ Acceptance: synthetic unit coverage for filters, missing values, correlation ali
 - [x] Implement and test calculations and API data projection.
 - [x] Implement and validate all three desktop/mobile views.
 Validation: 20 unit, 13 database integration, and 18 browser tests pass, along with typecheck, lint, build, ShellCheck, and dependency audit. Release acceptance requires push, deployment, live readiness, service-log review, and the expanded desktop/mobile smoke checks; report evidence with the deployed revision.
+
+## Review recommendations
+Implement local-date defaults, redacted log paths, accessible mobile navigation, immutable asset caching, URL-backed view controls, revision-aware history reuse, per-kind sync/completeness, and server-enforced selective expiring shares. Prepare encrypted off-server backups, periodic restore verification, and operational monitoring; destination/delivery configuration requires user input.
+Acceptance: timezone/keyboard/history browser regressions, share restrictions and cache invalidation API tests, unit coverage, project gates, deployment smoke/readiness/log checks. Preserve existing share policy for existing links. Additive migration; do not roll back to code that ignores sharing restrictions after enabling restricted shares.
+
+- [x] Local date, navigation keyboard/focus, URL controls, token redaction, static asset cache, restricted sharing, completeness, and history reuse implemented.
+- [x] 23 unit tests and 15 database tests passed. Desktop/mobile suite passed 22 tests, with two additional context-reuse cases passing separately. Build, typecheck, lint, audit, and ShellCheck pass.
+- [x] Encrypted off-server backup round-trip and upload-failure handling verified using synthetic data and a mocked transport.
+- [ ] Off-server destination/recipient and alert delivery hook: user configuration pending. No real external transfer or message has been sent.
+Release verification: run full CI and production smoke/readiness, a real scratch restore, and monitor status after deployment. Report pending configuration separately from successful application deployment.
