@@ -20,10 +20,10 @@ chown -R root:root "$release"
 chmod -R go-w,a+rX "$release"
 runuser -u gallant -- node --input-type=module -e 'await import("fastify"); await import("drizzle-orm");'
 docker compose -f deploy/compose.yml up -d --wait --wait-timeout 300
-if [[ -L /opt/gallant-dashboard/current ]]; then /opt/gallant-dashboard/current/deploy/backup.sh; fi
+"$release/deploy/backup.sh"
 # Node reads the protected environment directly; secrets never enter command arguments.
 node --env-file=/etc/gallant-dashboard.env dist/server/server/migrate.js
-previous=$(readlink -f /opt/gallant-dashboard/current || true)
+previous=$(readlink -e /opt/gallant-dashboard/current || true)
 ln -sfn "$release" /opt/gallant-dashboard/current.next
 mv -Tf /opt/gallant-dashboard/current.next /opt/gallant-dashboard/current
 install -m 644 deploy/gallant-web.service deploy/gallant-worker.service deploy/gallant-backup.service deploy/gallant-backup.timer /etc/systemd/system/
