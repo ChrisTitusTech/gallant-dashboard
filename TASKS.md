@@ -42,3 +42,12 @@ No connected browser session was available to edit the WHOOP Developer Dashboard
 Live authorization and initial history imports are complete. Compare representative dates against WHOOP and confirm a real webhook updates the dashboard. Fixture tests cannot prove actual account history coverage or webhook registration.
 
 Implementation commits are published on `main`; GitHub Actions validation passed for revision `af36345`. Backups are on the VPS; off-server backup transport is not configured.
+
+## Historical analytics enhancement
+
+- [x] Sleep stages, hours versus need/debt/naps, efficiency, consistency, and local timing charts
+- [x] HRV/resting-heart-rate charts with prior 28-day baselines and observation counts
+- [x] Yearly recovery/strain/sleep calendar with accessible daily drilldown
+- [x] Synthetic demo, privacy/isolation regression checks, desktop/mobile browser validation
+
+Implementation and acceptance details are in [the analytics plan](docs/analytics-plan.md). This enhancement is committed locally; production deployment and publication were not part of this implementation task.

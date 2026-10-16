@@ -37,6 +37,9 @@ Setup, validation, deployment, backup, restore, and API instructions follow belo
 - WHOOP OAuth sign-in with private sessions and encrypted rotating tokens.
 - Resumable full-history imports of cycles, sleep, recovery, and workouts, plus profile and current body-measurement snapshots.
 - Strain, sleep, and recovery charts, rolling averages, prior-period comparisons, daily details, and private CSV/JSON exports.
+- Sleep analytics: light/deep/REM totals, hours versus need, sleep-debt contribution, naps, efficiency, consistency, and recorded-local sleep timing.
+- HRV and resting-heart-rate charts against personal 28-day baselines, requiring at least seven valid prior readings.
+- A full-year calendar for recovery, strain, or sleep, with year selection and day-detail navigation independent of the chart range.
 - Optional revocable public links exposing the full dashboard, without account data or raw exports.
 - Signed v2 webhooks, hourly cycle polling, daily 14-day reconciliation, and weekly complete history reconciliation.
 - Durable PostgreSQL jobs and an application-wide budget of 60 requests/minute and 8,000/day, below WHOOP defaults. Exhausted budgets defer jobs, including historical imports, rather than discarding work.

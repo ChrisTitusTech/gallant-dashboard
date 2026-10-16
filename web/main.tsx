@@ -41,6 +41,7 @@ import {
 import type { Dashboard, Member, Sync } from "./types";
 import { sample } from "./demo";
 import "./style.css";
+import { SleepAnalytics, RecoveryAnalytics, YearCalendar } from "./analytics";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const ago = (days: number, end = today()) =>
@@ -588,6 +589,25 @@ function App() {
                       />
                     ))}
                   </div>
+                  {tab === "sleep" && (
+                    <SleepAnalytics data={data} onSelect={setSelected} />
+                  )}
+                  {tab === "recovery" && (
+                    <RecoveryAnalytics data={data} onSelect={setSelected} />
+                  )}
+                  {tab === "overview" && (
+                    <YearCalendar
+                      days={data.analytics.calendar}
+                      onSelect={(date) => {
+                        if (date < start || date > end) {
+                          setRange("custom");
+                          setStart(date);
+                          setEnd(date);
+                        }
+                        setSelected(date);
+                      }}
+                    />
+                  )}
                   <div className="lower-grid">
                     <section className="panel highlights">
                       <div className="panel-heading">
@@ -776,8 +796,29 @@ function App() {
         >
           <p className="subtle">
             Records are grouped by WHOOP physiological cycle where available.
-            All times below are UTC.
+            Record timestamps are UTC; bedtime and wake-hour metrics use the
+            recorded local offset.
           </p>
+          {data.analytics.recovery
+            .filter((d) => d.date === selected)
+            .map((d) => (
+              <div className="detail-block" key="baseline">
+                <h3>PERSONAL BASELINES</h3>
+                <p className="subtle">
+                  Preceding 28 days; at least 7 readings per metric.
+                </p>
+                <dl>
+                  <dt>HRV baseline</dt>
+                  <dd>
+                    {fmt(d.hrvBaseline)} ms ({d.hrvCount} readings)
+                  </dd>
+                  <dt>Resting heart rate baseline</dt>
+                  <dd>
+                    {fmt(d.rhrBaseline)} bpm ({d.rhrCount} readings)
+                  </dd>
+                </dl>
+              </div>
+            ))}
           {data.chart.mode !== "day" && (
             <label className="field-label">
               Explore another day

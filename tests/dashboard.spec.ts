@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { sample } from "../web/demo";
+import { analyticsPayload } from "../server/analytics";
 
 test("landing page identifies demo data and provides WHOOP sign-in", async ({
   page,
@@ -135,4 +136,101 @@ test("public dashboard has no exports or account mutations", async ({
   await expect(
     page.getByRole("button", { name: "Account & sharing" }),
   ).toHaveCount(0);
+});
+
+test("analytics views and calendar support navigation without mobile overflow", async ({
+  page,
+}, info) => {
+  await page.clock.setFixedTime(new Date("2026-10-15T12:00:00Z"));
+  await page.goto("/demo");
+  await expect(
+    page.getByRole("heading", { name: "Your year at a glance" }),
+  ).toBeVisible();
+  await page.getByLabel("Calendar year").selectOption("2025");
+  await page.getByLabel("Calendar metric").selectOption("strain");
+  await expect(
+    page.getByRole("button", { name: /^2025-12-15: Strain/ }),
+  ).toBeEnabled();
+  await page.getByRole("button", { name: /^2025-12-15: Strain/ }).click();
+  await expect(page.getByRole("dialog")).toContainText("CYCLE");
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "30 days", exact: true }).click();
+  if (info.project.name === "mobile")
+    await page.getByRole("button", { name: "Open navigation" }).click();
+  await page.getByRole("button", { name: "Sleep", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Sleep stages" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Sleep timing" }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: `test-results/sleep-analytics-${info.project.name}.png`,
+    animations: "disabled",
+    fullPage: true,
+  });
+  if (info.project.name === "mobile")
+    await page.getByRole("button", { name: "Open navigation" }).click();
+  await page.getByRole("button", { name: "Recovery", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "HRV and your baseline" }),
+  ).toBeVisible();
+  await expect(page.getByText(/preceding 28 calendar days/)).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: `test-results/recovery-analytics-${info.project.name}.png`,
+    animations: "disabled",
+    fullPage: true,
+  });
+});
+
+test("empty histories keep gaps distinct and calendar days work with a keyboard", async ({
+  page,
+}, info) => {
+  await page.clock.setFixedTime(new Date("2026-10-15T12:00:00Z"));
+  const empty = {
+    ...sample("2026-09-16", "2026-10-15"),
+    earliest: null,
+    latest: null,
+    details: [],
+    analytics: analyticsPayload([], "2026-09-16", "2026-10-15"),
+  };
+  await page.route("**/api/shared/*", (route) =>
+    route.fulfill({ json: empty }),
+  );
+  await page.goto("/share/test-empty");
+  await expect(
+    page.getByText("0 scored days in 2026.", { exact: false }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", {
+      name: "2026-12-01: Recovery future date",
+      exact: true,
+    }),
+  ).toBeDisabled();
+  const day = page.getByRole("button", {
+    name: "2026-10-01: Recovery no data",
+    exact: true,
+  });
+  await day.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("dialog")).toContainText(
+    "No records for this day.",
+  );
+  await page.keyboard.press("Escape");
+  if (info.project.name === "mobile")
+    await page.getByRole("button", { name: "Open navigation" }).click();
+  await page.getByRole("button", { name: "Sleep", exact: true }).click();
+  await expect(page.getByText("No scored data for this period.")).toHaveCount(
+    4,
+  );
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
 });

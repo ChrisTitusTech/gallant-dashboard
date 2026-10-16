@@ -25,5 +25,16 @@ Run typecheck, lint, unit tests, build, isolated PostgreSQL integration tests, a
 ## Progress
 
 - [x] Calculations and API verified
-- [ ] Interface and browser acceptance verified
-- [ ] Documentation, final checks, and local commits complete
+- [x] Interface and browser acceptance verified
+- [x] Documentation, final checks, and local commits complete
+
+## Acceptance evidence
+
+- 14 unit tests pass, including baseline warmup/context, sparse records, complete sleep-stage grouping, signed nap adjustment, leap years, and long-range aggregation.
+- 12 PostgreSQL integration tests pass; existing member isolation and revocable sharing checks now cover analytics/calendar payloads.
+- 12 distinct desktop/mobile browser cases pass, including the new views, out-of-range calendar drilldown, empty histories, future dates, and keyboard activation.
+- TypeScript, ESLint, production build, Prettier, and diff whitespace checks pass. The existing Vite bundle-size advisory remains (approximately 203 KB gzipped).
+- Synthetic desktop sleep/calendar and mobile recovery screenshots inspected. Mobile screenshots disable animations to capture the settled navigation state.
+- No dependency, database schema, server configuration, or OAuth permission changes. No production deployment or push performed for this task.
+
+The sleep-need calculation now adds WHOOP's already-signed nap adjustment. The regression test first reproduced the incorrect 9.5-hour result for an 8.5-hour requirement. Field reference: https://developer.whoop.com/api/.
