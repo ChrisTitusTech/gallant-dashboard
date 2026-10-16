@@ -51,3 +51,14 @@ Implementation commits are published on `main`; GitHub Actions validation passed
 - [x] Synthetic demo, privacy/isolation regression checks, desktop/mobile browser validation
 
 Implementation and acceptance details are in [the analytics plan](docs/analytics-plan.md). The user subsequently authorized push and deployment as the default completion workflow; see AGENTS.md.
+
+## Shutdown and dependency fixes
+
+- [x] Reproduce the worker shutdown hang with `PGMAX_LIFETIME=1`; normal idle connections alone do not reproduce it.
+- [x] Bound Postgres.js pool teardown to five seconds after completing the current job and releasing the singleton lock. Regression verifies normal process exit and lock availability for a replacement.
+- [x] Upgrade `@fastify/static` to 10.1.6 and override only the vulnerable transitive esbuild used by `@esbuild-kit/core-utils` to the patched 0.25 series. Migration generation verified in a temporary directory.
+- [x] Add a dependency-audit CI gate; the current lockfile has zero known vulnerabilities.
+- [x] Split chart dependencies into their own production bundle, removing the bundle-size warning.
+- [x] Validate 14 unit tests, 13 database integration tests, and 12 browser tests, including encoded-path rejection and worker shutdown. Typecheck, lint, production build, ShellCheck, formatting checks, and migration generation pass.
+
+Postgres.js documents bounded teardown in its [cleanup guidance](https://github.com/porsager/postgres#teardown--cleanup). The regression specifically exercises an expired reserved connection; increasing systemd's stop timeout would not resolve the hang.

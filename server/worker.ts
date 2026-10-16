@@ -53,7 +53,12 @@ try {
     } else await setTimeout(2000);
   }
 } finally {
-  await connection`select pg_advisory_unlock(834702)`;
-  connection.release();
-  await client.end();
+  try {
+    await connection`select pg_advisory_unlock(834702)`;
+  } finally {
+    connection.release();
+    // An expired reserved connection can leave Postgres.js teardown pending.
+    // The current job has finished; bound pool cleanup rather than waiting for SIGKILL.
+    await client.end({ timeout: 5 });
+  }
 }

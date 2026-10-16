@@ -2,6 +2,8 @@ import "./env.js";
 import assert from "node:assert/strict";
 import { after, before, beforeEach, test } from "node:test";
 import { createHmac } from "node:crypto";
+import { spawn } from "node:child_process";
+import { setTimeout as sleep } from "node:timers/promises";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { and, eq, sql } from "drizzle-orm";
 import { client, db } from "../server/db.js";
@@ -470,8 +472,76 @@ test("production static serving keeps sharing pages uncached and rejects unknown
     assert.equal(share.headers["cache-control"], "no-store");
     assert.equal(share.headers["x-robots-tag"], "noindex, nofollow, noarchive");
     assert.equal((await server.inject("/.env")).statusCode, 404);
+    for (const path of [
+      "/%2e%2e/%2e%2e/.env",
+      "/assets/..%2f..%2f.env",
+      "/assets/%2e%2e%5c.env",
+    ]) {
+      const response = await server.inject(path);
+      assert.ok(
+        [400, 403, 404].includes(response.statusCode),
+        `non-canonical private path must be rejected: ${path}`,
+      );
+    }
     assert.equal((await server.inject("/unexpected-page")).statusCode, 404);
   } finally {
     await server.close();
   }
 });
+
+test(
+  "worker exits cleanly after its reserved connection lifetime expires",
+  { timeout: 20000 },
+  async () => {
+    await db.update(members).set({ connected: false });
+    const worker = spawn(
+      process.execPath,
+      ["--import", "tsx", "server/worker.ts"],
+      {
+        env: { ...process.env, PGMAX_LIFETIME: "1" },
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
+    let output = "";
+    worker.stdout.on("data", (data) => {
+      output += data;
+    });
+    worker.stderr.on("data", (data) => {
+      output += data;
+    });
+    const exited = new Promise<{ code: number | null; signal: string | null }>(
+      (resolve) =>
+        worker.once("exit", (code, signal) => resolve({ code, signal })),
+    );
+    try {
+      for (let i = 0; i < 100 && !output.includes("WHOOP worker started"); i++)
+        await sleep(50);
+      assert.match(output, /WHOOP worker started/);
+      await sleep(1500);
+      worker.kill("SIGTERM");
+      const result = await Promise.race([
+        exited,
+        sleep(10000, null, { ref: false }),
+      ]);
+      assert.deepEqual(
+        result,
+        { code: 0, signal: null },
+        "expired reserved connection must close without systemd SIGKILL",
+      );
+      await db.transaction(async (tx) => {
+        const [lock] = await tx.execute(
+          sql`select pg_try_advisory_xact_lock(834702) as acquired`,
+        );
+        assert.equal(
+          lock.acquired,
+          true,
+          "a replacement worker must be able to acquire the singleton lock",
+        );
+      });
+    } finally {
+      if (worker.exitCode === null && worker.signalCode === null)
+        worker.kill("SIGKILL");
+      await exited;
+    }
+  },
+);
