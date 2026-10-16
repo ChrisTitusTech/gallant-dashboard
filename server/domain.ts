@@ -204,15 +204,53 @@ export function detail(record: StoredRecord, date = record.localDate): Detail {
   };
 }
 export function makeDetails(records: StoredRecord[]) {
+  const sleepRecords = records.filter((r) => r.kind === "sleep");
+  const sleepById = new Map(sleepRecords.map((r) => [r.sourceId, r]));
+  const mainSleepByCycle = new Map<string, StoredRecord>();
+  const sleepCycle = new Map<string, string>();
+  // Choose deterministically; a nap or unfinished sleep cannot move the day.
+  for (const sleep of sleepRecords
+    .slice()
+    .sort(
+      (a, b) =>
+        (a.end?.getTime() ?? Infinity) - (b.end?.getTime() ?? Infinity) ||
+        a.sourceId.localeCompare(b.sourceId),
+    )) {
+    if (sleep.cycleId) {
+      sleepCycle.set(sleep.sourceId, sleep.cycleId);
+      if (!sleep.raw.nap && sleep.end && !mainSleepByCycle.has(sleep.cycleId))
+        mainSleepByCycle.set(sleep.cycleId, sleep);
+    }
+  }
+  // The recovery relationship also supports sleep payloads without cycle_id.
+  for (const recovery of records.filter((r) => r.kind === "recovery")) {
+    const sleep = sleepById.get(String(recovery.raw.sleep_id));
+    if (sleep && recovery.cycleId && !sleep.raw.nap && sleep.end) {
+      sleepCycle.set(sleep.sourceId, recovery.cycleId);
+      mainSleepByCycle.set(recovery.cycleId, sleep);
+    }
+  }
   const cycles = new Map(
     records
       .filter((r) => r.kind === "cycle")
-      .map((r) => [r.sourceId, r.localDate]),
+      .map((r) => {
+        const sleep = mainSleepByCycle.get(r.sourceId);
+        return [
+          r.sourceId,
+          sleep?.end
+            ? localDate(
+                sleep.end.toISOString(),
+                sleep.raw.timezone_offset ?? r.raw.timezone_offset,
+              )
+            : r.localDate,
+        ];
+      }),
   );
   const sleeps = new Map(
-    records
-      .filter((r) => r.kind === "sleep")
-      .map((r) => [r.sourceId, cycles.get(r.cycleId ?? "") ?? r.localDate]),
+    sleepRecords.map((r) => [
+      r.sourceId,
+      cycles.get(sleepCycle.get(r.sourceId) ?? "") ?? r.localDate,
+    ]),
   );
   const ordered = records
     .filter((r) => r.kind === "cycle")
@@ -228,7 +266,7 @@ export function makeDetails(records: StoredRecord[]) {
     }
     const cycle = ordered[lo - 1];
     return cycle && (!cycle.end || r.start < cycle.end)
-      ? cycle.localDate
+      ? cycles.get(cycle.sourceId)
       : undefined;
   };
   return records
@@ -236,8 +274,10 @@ export function makeDetails(records: StoredRecord[]) {
     .map((r) =>
       detail(
         r,
-        cycles.get(r.cycleId ?? "") ??
-          sleeps.get(String(r.raw.sleep_id)) ??
+        cycles.get(r.kind === "cycle" ? r.sourceId : (r.cycleId ?? "")) ??
+          sleeps.get(
+            r.kind === "sleep" ? r.sourceId : String(r.raw.sleep_id),
+          ) ??
           workoutDate(r) ??
           r.localDate,
       ),

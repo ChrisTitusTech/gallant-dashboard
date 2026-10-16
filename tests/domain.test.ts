@@ -183,3 +183,92 @@ test("sleep need uses the signed nap adjustment and preserves missing components
     null,
   );
 });
+
+test("a pre-midnight main sleep anchors its cycle, recovery, and workouts to the local wake date", () => {
+  const records = [
+    normalize("cycle", {
+      id: 1,
+      start: "2026-02-10T07:00:00Z",
+      end: "2026-02-11T04:30:00Z",
+      timezone_offset: "-05:00",
+      score_state: "SCORED",
+      score: { strain: 5 },
+    }),
+    normalize("cycle", {
+      id: 2,
+      start: "2026-02-11T04:30:00Z",
+      end: "2026-02-12T06:00:00Z",
+      timezone_offset: "-05:00",
+      score_state: "SCORED",
+      score: { strain: 15 },
+    }),
+    normalize("sleep", {
+      id: "night",
+      cycle_id: 2,
+      start: "2026-02-11T04:30:00Z",
+      end: "2026-02-11T13:00:00Z",
+      timezone_offset: "-05:00",
+      score_state: "SCORED",
+      score: { sleep_performance_percentage: 90 },
+    }),
+    normalize("sleep", {
+      id: "nap",
+      cycle_id: 2,
+      start: "2026-02-12T04:00:00Z",
+      end: "2026-02-12T05:30:00Z",
+      timezone_offset: "-05:00",
+      nap: true,
+    }),
+    normalize("recovery", {
+      cycle_id: 2,
+      sleep_id: "night",
+      created_at: "2026-02-11T14:00:00Z",
+      score_state: "SCORED",
+      score: { recovery_score: 80 },
+    }),
+    normalize("workout", {
+      id: "training",
+      start: "2026-02-11T20:00:00Z",
+      end: "2026-02-11T21:00:00Z",
+      timezone_offset: "-05:00",
+    }),
+  ];
+  const details = makeDetails(records);
+  const days = daily(details, "2026-02-10", "2026-02-11");
+  assert.deepEqual(
+    days.map((d) => d.strain),
+    [5, 15],
+  );
+  assert.equal(days[1].sleep, 90);
+  assert.equal(days[1].recovery, 80);
+  assert.ok(details.slice(1).every((d) => d.date === "2026-02-11"));
+  assert.deepEqual(
+    makeDetails(records.slice().reverse())
+      .map((d) => d.date)
+      .reverse(),
+    details.map((d) => d.date),
+  );
+});
+
+test("recovery links anchor sleeps without cycle IDs, while absent main sleep keeps the cycle fallback", () => {
+  const records = [
+    normalize("cycle", {
+      id: 3,
+      start: "2026-03-01T18:00:00Z",
+      timezone_offset: "+05:30",
+    }),
+    normalize("sleep", {
+      id: "linked",
+      start: "2026-03-01T18:00:00Z",
+      end: "2026-03-02T02:00:00Z",
+      timezone_offset: "+05:30",
+    }),
+    normalize("recovery", {
+      cycle_id: 3,
+      sleep_id: "linked",
+      created_at: "2026-03-03T00:00:00Z",
+    }),
+  ];
+  assert.ok(makeDetails(records).every((d) => d.date === "2026-03-02"));
+  assert.equal(makeDetails(records.slice(0, 1))[0].date, "2026-03-01");
+});
