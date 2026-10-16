@@ -169,3 +169,7 @@ A production restore is a separate destructive operation: stop both application 
 Mutations require the configured Origin and JSON content type. Sessions are HTTP-only, host-only cookies; OAuth states are single-use and browser-bound. Tokens are AES-256-GCM encrypted. Public responses use explicit field projection; raw WHOOP JSON is available only in the authenticated export. All dashboard and sharing responses use `Cache-Control: no-store`.
 
 Official references: [API](https://developer.whoop.com/api/), [OAuth](https://developer.whoop.com/docs/developing/oauth/), [webhooks](https://developer.whoop.com/docs/developing/webhooks/), [rate limits](https://developer.whoop.com/docs/developing/rate-limiting/), [member tiers](https://developer.whoop.com/docs/developing/app-approval/).
+
+## License
+
+[MIT](LICENSE) - Copyright (c) 2026 Chris Titus.
