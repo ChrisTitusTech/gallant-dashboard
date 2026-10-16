@@ -1,3 +1,4 @@
+import { explorationHistory } from "../server/explore";
 import { bucket, daily, summarize, type Detail } from "../server/domain";
 import { analyticsPayload, lifetimeStats } from "../server/analytics";
 import type { Dashboard } from "./types";
@@ -64,10 +65,22 @@ export function sample(start: string, end: string): Dashboard {
       details.push({
         ...base,
         kind: "workout",
-        sport: "Running",
-        metrics: { strain: 9 },
+        sport: i % 2 ? "Running" : "Cycling",
+        metrics: {
+          strain: 7 + (i % 10),
+          average_heart_rate: 120 + (i % 30),
+          max_heart_rate: 175,
+          ...Object.fromEntries(
+            ["zero", "one", "two", "three", "four", "five"].map((z, j) => [
+              "zone_" + z + "_milli",
+              ((j + 1) / 21) * (30 + (i % 90)) * 60000,
+            ]),
+          ),
+        },
         start: date + "T16:00:00Z",
-        end: date + "T17:00:00Z",
+        end: new Date(
+          Date.parse(date + "T16:00:00Z") + (30 + (i % 90)) * 60000,
+        ).toISOString(),
       });
     details.push({
       ...base,
@@ -96,6 +109,7 @@ export function sample(start: string, end: string): Dashboard {
   return {
     analytics: analyticsPayload(details, start, end),
     lifetime: lifetimeStats(details),
+    exploration: explorationHistory(details),
     name: "Alex Morgan",
     start,
     end,

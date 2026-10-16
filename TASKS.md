@@ -71,3 +71,12 @@ Postgres.js documents bounded teardown in its [cleanup guidance](https://github.
 - [x] Verify lifetime values remain independent of date filters and isolated per member, including shared dashboards.
 - [x] Pass 17 unit, 13 database integration, and 14 desktop/mobile browser tests; typecheck, lint, production build, and dependency audit pass.
 Release acceptance: publish and deploy, then verify the October 15 projection against production records and run desktop/mobile smoke checks. Report live evidence with the deployed revision.
+
+## Workout explorer, correlations, and year comparisons
+
+Scope: three navigation views using member-scoped imported data. Workout filters cover sport, duration, strain, and zone time with sortable results, weekly hours, and daily drilldown. Correlations show date-matched scatter points, Pearson r, paired counts, and explicit same-day/next-day alignment; fewer than ten pairs or constant values do not produce a coefficient. Year comparisons match month/day observations across two years and show monthly averages and coverage, preserving missing values and leap-day differences.
+
+Acceptance: synthetic unit coverage for filters, missing values, correlation alignment/variance, leap years and partial years; API isolation and date-range boundaries; desktop/mobile controls, empty states, and screenshots. Run project checks, database/browser suites, audit, CI, and production smoke checks. No schema change; deployment uses existing backup and release rollback.
+- [x] Implement and test calculations and API data projection.
+- [x] Implement and validate all three desktop/mobile views.
+Validation: 20 unit, 13 database integration, and 18 browser tests pass, along with typecheck, lint, build, ShellCheck, and dependency audit. Release acceptance requires push, deployment, live readiness, service-log review, and the expanded desktop/mobile smoke checks; report evidence with the deployed revision.

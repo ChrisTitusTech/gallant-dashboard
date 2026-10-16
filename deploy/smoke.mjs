@@ -86,6 +86,43 @@ try {
         animations: "disabled",
       });
     }
+    for (const [tab, region] of [
+      ["Workouts", "Workout explorer"],
+      ["Correlations", "Personal correlations"],
+      ["Year comparisons", "Year-over-year comparisons"],
+    ]) {
+      if (label === "mobile")
+        await page.getByRole("button", { name: "Open navigation" }).click();
+      await page.getByRole("button", { name: tab, exact: true }).click();
+      const panel = page.getByRole("region", { name: region });
+      await expect(panel).toBeVisible();
+      if (tab === "Workouts") {
+        await panel
+          .getByLabel("Sport", { exact: true })
+          .selectOption("Running");
+        await expect(panel.locator("tbody")).toContainText("Running");
+        await expect(panel.locator("tbody")).not.toContainText("Cycling");
+      } else if (tab === "Correlations") {
+        await expect(panel).toContainText("(30 paired days)");
+        await panel.getByLabel("Outcome timing").selectOption("1");
+        await expect(panel).toContainText("(29 paired days)");
+      } else {
+        await panel.getByLabel("First year").selectOption("2024");
+        await panel.getByLabel("Second year").selectOption("2023");
+        await expect(panel).toContainText("365 matched calendar days");
+      }
+      assert.equal(
+        await page.evaluate(
+          () =>
+            globalThis.document.documentElement.scrollWidth <=
+            globalThis.innerWidth,
+        ),
+        true,
+      );
+      await panel.screenshot({
+        path: `/tmp/gallant-live-${tab.replaceAll(" ", "-")}-${label}.png`,
+      });
+    }
     assert.deepEqual(errors, []);
     console.log(
       `Production ${label}: sign-in link, charts, ranges, details, yearly calendar, sleep/recovery analytics, layout, and JavaScript passed.`,

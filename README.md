@@ -34,6 +34,10 @@ Setup, validation, deployment, backup, restore, and API instructions follow belo
 
 ## Features
 
+- Workout explorer with sport, duration, strain, and heart-rate-zone filters, weekly hours, sortable paginated records, and daily details.
+- Personal correlations with scatter plots, paired-day counts, and same-cycle or next-calendar-day alignment. Pearson coefficients require ten pairs and variation in both metrics; they describe association, not causation.
+- Year-over-year monthly comparisons for strain, sleep, recovery, sleep hours, HRV, and resting heart rate. Only matching scored month/day observations contribute to each pair of averages.
+
 - Lifetime statistics across all imported history: daily averages and high/low dates, nightly sleep and nap totals, workout counts and hours, and green recovery days. Chart range changes do not alter lifetime statistics. Missing readings are excluded.
 - Daily grouping uses the associated main sleep's local wake date, keeping pre-midnight cycle starts aligned with sleep and recovery.
 

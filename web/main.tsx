@@ -40,6 +40,11 @@ import {
 } from "recharts";
 import type { Dashboard, Member, Sync } from "./types";
 import { sample } from "./demo";
+import {
+  WorkoutExplorer,
+  PersonalCorrelations,
+  YearComparison,
+} from "./explore";
 import { LifetimeStats } from "./lifetime";
 import "./style.css";
 import { SleepAnalytics, RecoveryAnalytics, YearCalendar } from "./analytics";
@@ -240,6 +245,9 @@ function App() {
             [Zap, "strain", "Strain"],
             [Moon, "sleep", "Sleep"],
             [HeartPulse, "recovery", "Recovery"],
+            [Activity, "workouts", "Workouts"],
+            [Sparkles, "correlations", "Correlations"],
+            [CalendarDays, "years", "Year comparisons"],
           ].map(([Icon, id, label]) => {
             const I = Icon as typeof Zap;
             return (
@@ -395,7 +403,13 @@ function App() {
                         ? "Every effort adds up."
                         : tab === "sleep"
                           ? "Make room for recovery."
-                          : "Find your balance."}
+                          : tab === "workouts"
+                            ? "Explore your training."
+                            : tab === "correlations"
+                              ? "Find your patterns."
+                              : tab === "years"
+                                ? "See your progress over years."
+                                : "Find your balance."}
                   </h1>
                   <p>
                     {shared
@@ -563,54 +577,68 @@ function App() {
                       </p>
                     </div>
                   )}
-                  <div className="section-heading">
-                    <h2>
-                      {tab === "overview"
-                        ? "Performance trends"
-                        : `${tab[0].toUpperCase() + tab.slice(1)} trends`}
-                    </h2>
-                    <span>
-                      {data.chart.mode === "day"
-                        ? "Daily values"
-                        : `${data.chart.mode === "week" ? "Weekly" : "Monthly"} averages`}
-                      <span className="separator">/</span>Click a chart to
-                      explore
-                    </span>
-                  </div>
-                  <div className="charts-grid">
-                    {(tab === "overview"
-                      ? ["strain", "sleep", "recovery"]
-                      : [tab]
-                    ).map((metric) => (
-                      <Chart
-                        key={metric}
-                        metric={metric}
-                        data={data}
-                        onSelect={setSelected}
-                      />
-                    ))}
-                  </div>
-                  {tab === "sleep" && (
-                    <SleepAnalytics data={data} onSelect={setSelected} />
-                  )}
-                  {tab === "recovery" && (
-                    <RecoveryAnalytics data={data} onSelect={setSelected} />
-                  )}
-                  {tab === "overview" && (
-                    <LifetimeStats stats={data.lifetime} />
-                  )}
-                  {tab === "overview" && (
-                    <YearCalendar
-                      days={data.analytics.calendar}
-                      onSelect={(date) => {
-                        if (date < start || date > end) {
-                          setRange("custom");
-                          setStart(date);
-                          setEnd(date);
-                        }
-                        setSelected(date);
-                      }}
+                  {tab === "workouts" ? (
+                    <WorkoutExplorer
+                      key={start + end}
+                      data={data}
+                      onSelect={setSelected}
                     />
+                  ) : tab === "correlations" ? (
+                    <PersonalCorrelations data={data} onSelect={setSelected} />
+                  ) : tab === "years" ? (
+                    <YearComparison data={data} />
+                  ) : (
+                    <>
+                      <div className="section-heading">
+                        <h2>
+                          {tab === "overview"
+                            ? "Performance trends"
+                            : `${tab[0].toUpperCase() + tab.slice(1)} trends`}
+                        </h2>
+                        <span>
+                          {data.chart.mode === "day"
+                            ? "Daily values"
+                            : `${data.chart.mode === "week" ? "Weekly" : "Monthly"} averages`}
+                          <span className="separator">/</span>Click a chart to
+                          explore
+                        </span>
+                      </div>
+                      <div className="charts-grid">
+                        {(tab === "overview"
+                          ? ["strain", "sleep", "recovery"]
+                          : [tab]
+                        ).map((metric) => (
+                          <Chart
+                            key={metric}
+                            metric={metric}
+                            data={data}
+                            onSelect={setSelected}
+                          />
+                        ))}
+                      </div>
+                      {tab === "sleep" && (
+                        <SleepAnalytics data={data} onSelect={setSelected} />
+                      )}
+                      {tab === "recovery" && (
+                        <RecoveryAnalytics data={data} onSelect={setSelected} />
+                      )}
+                      {tab === "overview" && (
+                        <LifetimeStats stats={data.lifetime} />
+                      )}
+                      {tab === "overview" && (
+                        <YearCalendar
+                          days={data.analytics.calendar}
+                          onSelect={(date) => {
+                            if (date < start || date > end) {
+                              setRange("custom");
+                              setStart(date);
+                              setEnd(date);
+                            }
+                            setSelected(date);
+                          }}
+                        />
+                      )}
+                    </>
                   )}
                   <div className="lower-grid">
                     <section className="panel highlights">

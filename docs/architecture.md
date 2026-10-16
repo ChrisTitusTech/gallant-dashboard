@@ -42,6 +42,14 @@ Missing scores remain gaps. Chart aggregation averages daily strain rather than 
 
 Lifetime statistics use all member history, independent of the selected range. Daily metric averages and extrema exclude missing scores and retain zero. Sleep duration totals count scored main sleeps, with naps reported separately; workout duration includes only valid intervals and reports its observation count. Lifetime fields use the same member isolation and opt-in sharing boundaries as the dashboard.
 
+## Exploration views
+
+The dashboard includes a sanitized daily history projection for the authenticated member (or an explicitly enabled public share). Workout exploration uses the existing selected-range detail projection and adds no raw identifiers. Correlations require both input and outcome dates inside the selected range and join next-day outcomes by exact calendar date, never by adjacent array position. Fewer than ten pairs and constant inputs yield no coefficient. No significance or causal claims are generated.
+
+Year comparisons use all imported history and pair exact month/day values across the chosen years before computing monthly means. Missing dates, future dates without records, and unmatched leap days do not contribute. Counts accompany every monthly pair. A week in the workout chart starts Monday; only known, nonnegative workout durations contribute to hours. Missing strain or zone measurements do not become zero.
+
+Workout fields use the existing [WHOOP API](https://developer.whoop.com/api/) projection, including zone durations in milliseconds. No new scopes, migrations, or external processing are required.
+
 ## Operations
 
 Web and worker services run separately as an unprivileged user. PostgreSQL and the HTTP listener bind to loopback, with Caddy terminating public HTTPS. `/health` is liveness; `/ready` also checks database connectivity and recent worker heartbeat.

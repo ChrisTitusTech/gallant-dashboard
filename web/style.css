@@ -1413,3 +1413,75 @@ dd {
     gap: 16px;
   }
 }
+
+.exploration {
+  margin: 24px 0;
+  min-width: 0;
+}
+.exploration > .subtle {
+  line-height: 1.7;
+}
+.explore-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: end;
+  margin: 24px 0;
+}
+.explore-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  color: #a2b4bc;
+  max-width: 100%;
+}
+.explore-controls input,
+.explore-controls select {
+  background: #0c171b;
+  border: 1px solid #35444c;
+  color: #e1eaed;
+  border-radius: 6px;
+  padding: 10px;
+  min-width: 0;
+  max-width: 100%;
+}
+.explore-controls input {
+  width: 130px;
+}
+.explore-chart {
+  height: 300px;
+  margin: 24px 0;
+}
+.explore-tooltip {
+  background: #142127;
+  border: 1px solid #46565f;
+  padding: 12px;
+  font-size: 12px;
+}
+.exploration .table-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.exploration table {
+  width: 100%;
+  font-size: 12px;
+  border-collapse: collapse;
+}
+.exploration th,
+.exploration td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #28353d;
+  white-space: nowrap;
+}
+.correlation-result {
+  font-size: 18px;
+}
+.correlation-result span {
+  font-size: 13px;
+  color: #a2b4bc;
+}
+.sidebar {
+  overflow-y: auto;
+}

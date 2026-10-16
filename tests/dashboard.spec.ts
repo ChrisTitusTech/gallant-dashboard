@@ -195,6 +195,7 @@ test("empty histories keep gaps distinct and calendar days work with a keyboard"
   const empty = {
     ...sample("2026-09-16", "2026-10-15"),
     lifetime: lifetimeStats([]),
+    exploration: [],
     earliest: null,
     latest: null,
     details: [],
@@ -258,4 +259,101 @@ test("lifetime statistics stay constant across chart ranges", async ({
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
+});
+
+test("exploration views filter workouts, align correlations, and compare years", async ({
+  page,
+}, info) => {
+  await page.clock.setFixedTime(new Date("2026-10-15T12:00:00Z"));
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto("/demo");
+  const navigate = async (name: string) => {
+    if (info.project.name === "mobile")
+      await page.getByRole("button", { name: "Open navigation" }).click();
+    await page.getByRole("button", { name, exact: true }).click();
+  };
+  await navigate("Workouts");
+  const workouts = page.getByRole("region", { name: "Workout explorer" });
+  await expect(workouts.getByRole("status")).toContainText("matching workouts");
+  await workouts.getByLabel("Sport", { exact: true }).selectOption("Running");
+  const count = await workouts.locator("tbody tr").count();
+  expect(count).toBeGreaterThan(0);
+  await expect(workouts.locator("tbody")).not.toContainText("Cycling");
+  await workouts.getByLabel("Min duration (min)").fill("10000");
+  await expect(workouts).toContainText("No workouts match");
+  await workouts.getByRole("button", { name: "Reset filters" }).click();
+  await workouts.getByLabel("Heart-rate zone").selectOption("zone_two_milli");
+  await workouts.getByLabel("Min zone time (min)").fill("100");
+  await expect(workouts).toContainText("No workouts match");
+  await workouts.getByRole("button", { name: "Reset filters" }).click();
+  await workouts
+    .getByRole("button", { name: /^View / })
+    .first()
+    .click();
+  await expect(page.getByRole("dialog")).toContainText("WORKOUT");
+  await page.keyboard.press("Escape");
+  await workouts.screenshot({
+    path: `test-results/workouts-${info.project.name}.png`,
+  });
+  await navigate("Correlations");
+  const correlations = page.getByRole("region", {
+    name: "Personal correlations",
+  });
+  await expect(correlations).toContainText("(30 paired days)");
+  await correlations.getByLabel("Input metric").selectOption("strain");
+  await correlations.getByLabel("Outcome timing").selectOption("1");
+  await expect(correlations).toContainText("(29 paired days)");
+  await page.getByRole("button", { name: "7 days", exact: true }).click();
+  await expect(correlations).toContainText("At least 10 paired days");
+  await page.getByRole("button", { name: "30 days", exact: true }).click();
+  await correlations.locator(".recharts-scatter-symbol").first().click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await correlations.screenshot({
+    path: `test-results/correlations-${info.project.name}.png`,
+  });
+  await navigate("Year comparisons");
+  const years = page.getByRole("region", {
+    name: "Year-over-year comparisons",
+  });
+  await years.getByLabel("First year").selectOption("2024");
+  await years.getByLabel("Second year").selectOption("2023");
+  await expect(years).toContainText("365 matched calendar days");
+  await years.getByLabel("Comparison metric").selectOption("recovery");
+  await expect(years.locator("tbody tr")).toHaveCount(12);
+  await page.getByRole("button", { name: "7 days", exact: true }).click();
+  await expect(years).toContainText("365 matched calendar days");
+  await years.screenshot({
+    path: `test-results/years-${info.project.name}.png`,
+  });
+  await years.getByLabel("Second year").selectOption("2024");
+  await expect(years).toContainText("Choose two different years");
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  expect(errors).toEqual([]);
+});
+test("exploration views explain empty histories", async ({ page }, info) => {
+  const empty = {
+    ...sample("2026-10-01", "2026-10-15"),
+    details: [],
+    exploration: [],
+  };
+  await page.route("**/api/shared/*", (route) =>
+    route.fulfill({ json: empty }),
+  );
+  await page.goto("/share/empty");
+  for (const [name, message] of [
+    ["Workouts", "No workouts match"],
+    ["Correlations", "No paired observations"],
+    ["Year comparisons", "Import at least two years"],
+  ]) {
+    if (info.project.name === "mobile")
+      await page.getByRole("button", { name: "Open navigation" }).click();
+    await page.getByRole("button", { name, exact: true }).click();
+    await expect(page.getByText(message, { exact: false })).toBeVisible();
+  }
 });
