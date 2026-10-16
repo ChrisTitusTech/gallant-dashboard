@@ -1,3 +1,4 @@
+import { today } from "./dates";
 import { useMemo, useState } from "react";
 import {
   Bar,
@@ -323,7 +324,7 @@ export function YearCalendar({
   days: CalendarDay[];
   onSelect: (date: string) => void;
 }) {
-  const now = new Date().toISOString().slice(0, 10);
+  const now = today();
   const thisYear = Number(now.slice(0, 4));
   const [year, setYear] = useState(thisYear);
   const [metric, setMetric] = useState<keyof typeof metricNames>("recovery");

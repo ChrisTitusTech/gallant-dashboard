@@ -1485,3 +1485,58 @@ dd {
 .sidebar {
   overflow-y: auto;
 }
+
+.coverage {
+  margin: 24px 0;
+}
+.coverage .subtle {
+  line-height: 1.6;
+}
+.coverage .table-scroll {
+  overflow-x: auto;
+}
+.coverage table {
+  width: 100%;
+  font-size: 12px;
+}
+.coverage th,
+.coverage td {
+  padding: 12px;
+  text-align: left;
+  white-space: nowrap;
+}
+.share-options {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0;
+}
+.share-options fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 12px;
+  border: 1px solid #35444c;
+}
+.share-options label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.share-options input {
+  color: inherit;
+  background: #142127;
+  border: 1px solid #35444c;
+  padding: 8px;
+  min-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

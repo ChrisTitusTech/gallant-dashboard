@@ -1,3 +1,6 @@
+import { Coverage } from "./coverage";
+import { today, ago } from "./dates";
+import { useUrlState } from "./url-state";
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
@@ -49,9 +52,6 @@ import { LifetimeStats } from "./lifetime";
 import "./style.css";
 import { SleepAnalytics, RecoveryAnalytics, YearCalendar } from "./analytics";
 
-const today = () => new Date().toISOString().slice(0, 10);
-const ago = (days: number, end = today()) =>
-  new Date(Date.parse(end) - days * 86400000).toISOString().slice(0, 10);
 const fmt = (n: number | null | undefined, digits = 1) =>
   n == null ? "--" : n.toFixed(digits);
 const dateLabel = (date: string) =>
@@ -93,20 +93,69 @@ function App() {
   const [loaded, setLoaded] = useState(demo || !!shared || privacy);
   const [data, setData] = useState<Dashboard | null>(null);
   const [sync, setSync] = useState<Sync | null>(null);
-  const [range, setRange] = useState("30");
-  const [start, setStart] = useState(ago(29));
-  const [end, setEnd] = useState(today());
+  const [range, setRange] = useUrlState("range", "30");
+  const [start, setStart] = useUrlState("start", ago(29));
+  const [end, setEnd] = useUrlState("end", today());
   const [historyPage, setHistoryPage] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
-  const [tab, setTab] = useState("overview");
+  const [tab, setTab] = useUrlState("tab", "overview");
   const [settings, setSettings] = useState(false);
   const [sharePreview, setSharePreview] = useState(false);
   const [menu, setMenu] = useState(false);
+  const [mobile, setMobile] = useState(
+    () => matchMedia("(max-width: 800px)").matches,
+  );
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const wasMenuOpen = useRef(false);
+  useEffect(() => {
+    if (wasMenuOpen.current && !menu) menuButton.current?.focus();
+    wasMenuOpen.current = menu;
+  }, [menu]);
+  const sidebar = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const media = matchMedia("(max-width: 800px)");
+    const change = () => setMobile(media.matches);
+    media.addEventListener("change", change);
+    return () => media.removeEventListener("change", change);
+  }, []);
+  useEffect(() => {
+    if (!menu || !mobile) return;
+    sidebar.current?.querySelector<HTMLElement>("button, a")?.focus();
+    const close = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMenu(false);
+        menuButton.current?.focus();
+      }
+      if (e.key === "Tab") {
+        const items = [
+          ...(sidebar.current?.querySelectorAll<HTMLElement>(
+            "a[href],button:not(:disabled)",
+          ) ?? []),
+        ];
+        if (e.shiftKey && document.activeElement === items[0]) {
+          e.preventDefault();
+          items.at(-1)?.focus();
+        } else if (!e.shiftKey && document.activeElement === items.at(-1)) {
+          e.preventDefault();
+          items[0]?.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", close);
+    return () => document.removeEventListener("keydown", close);
+  }, [menu, mobile]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState("");
   const [revision, setRevision] = useState(0);
   const requestId = useRef(0);
+  const historyData = useRef<Dashboard | null>(null);
+  const [shareDraft, setShareDraft] = useState<
+    import("../server/history").SharePolicy
+  >({ kinds: ["cycle", "sleep", "recovery", "workout"] });
+  useEffect(() => {
+    if (member?.sharePolicy) setShareDraft(member.sharePolicy);
+  }, [member?.sharePolicy]);
   useEffect(() => {
     if (!demo && !shared && !privacy)
       api<Member>("/api/me")
@@ -119,23 +168,35 @@ function App() {
   useEffect(() => {
     if (!member && !shared && !demo) return;
     const id = ++requestId.current;
+    if (!start || !end) {
+      setError("Choose both a start and end date.");
+      return;
+    }
     if (start > end) {
       setError("The start date must be before the end date.");
       return;
     }
     if (demo) {
       setData(sample(start, end));
+      setError("");
       return;
     }
     setBusy(true);
     api<Dashboard>(
       (shared
         ? `/api/shared/${encodeURIComponent(shared)}`
-        : "/api/me/dashboard") + `?start=${start}&end=${end}`,
+        : "/api/me/dashboard") +
+        `?start=${start}&end=${end}${historyData.current?.contextVersion ? "&context=" + encodeURIComponent(historyData.current.contextVersion) : ""}`,
     )
       .then((d) => {
         if (id === requestId.current) {
-          setData(d);
+          const merged = {
+            ...historyData.current,
+            ...d,
+            analytics: { ...historyData.current?.analytics, ...d.analytics },
+          };
+          historyData.current = merged;
+          setData(merged);
           setError("");
         }
       })
@@ -219,8 +280,12 @@ function App() {
     action(async () => {
       const s = await api<{ shareUrl: string | null }>("/api/me/sharing", {
         enabled,
+        ...(enabled ? { policy: shareDraft } : {}),
       });
-      setMember((m) => m && { ...m, ...s });
+      setMember(
+        (m) =>
+          m && { ...m, ...s, ...(enabled ? { sharePolicy: shareDraft } : {}) },
+      );
       setSharePreview(false);
       setToast(
         enabled
@@ -230,7 +295,12 @@ function App() {
     });
   return (
     <div className="app">
-      <aside className={"sidebar " + (menu ? "open" : "")}>
+      <aside
+        ref={sidebar}
+        id="navigation"
+        inert={mobile && !menu}
+        className={"sidebar " + (menu ? "open" : "")}
+      >
         <a href="/" className="brand">
           <span className="brand-icon">
             <Mountain size={23} />
@@ -240,6 +310,17 @@ function App() {
         <span className="side-caption">YOUR PERFORMANCE, IN PERSPECTIVE</span>
         <div className="nav-label">WORKSPACE</div>
         <nav>
+          {mobile && menu && (
+            <button
+              className="nav"
+              onClick={() => {
+                setMenu(false);
+                menuButton.current?.focus();
+              }}
+            >
+              Close navigation
+            </button>
+          )}
           {[
             [LayoutDashboard, "overview", "Overview"],
             [Zap, "strain", "Strain"],
@@ -257,6 +338,7 @@ function App() {
                 onClick={() => {
                   setTab(id as string);
                   setMenu(false);
+                  if (mobile) menuButton.current?.focus();
                   if (!viewing) location.href = "/demo";
                 }}
               >
@@ -323,10 +405,13 @@ function App() {
           )}
         </div>
       </aside>
-      <main>
+      <main inert={mobile && menu}>
         <header className="topbar">
           <button
             className="icon-button mobile-toggle"
+            ref={menuButton}
+            aria-controls="navigation"
+            aria-expanded={menu}
             aria-label="Open navigation"
             onClick={() => setMenu(!menu)}
           >
@@ -640,6 +725,9 @@ function App() {
                       )}
                     </>
                   )}
+                  {signed && data.completeness && (
+                    <Coverage data={data} sync={sync} onSelect={setSelected} />
+                  )}
                   <div className="lower-grid">
                     <section className="panel highlights">
                       <div className="panel-heading">
@@ -905,12 +993,81 @@ function App() {
             enable a public link.
           </p>
           <section className="settings-section">
-            <h3>Share your full dashboard</h3>
+            <h3>Choose what to share</h3>
             <p>
-              A public link includes your name, complete metric history,
-              workouts, and body measurements. Anyone with the link can view it.
+              A public link includes your name and the data you select. Anyone
+              with the link can view it until it expires or you revoke it.
               Account details and exports stay private.
             </p>
+            <div className="share-options">
+              <fieldset>
+                <legend>Shared metrics</legend>
+                {[
+                  ["cycle", "Strain"],
+                  ["sleep", "Sleep"],
+                  ["recovery", "Recovery"],
+                  ["workout", "Workouts"],
+                  ["body", "Body measurements"],
+                ].map(([kind, label]) => (
+                  <label key={kind}>
+                    <input
+                      type="checkbox"
+                      checked={shareDraft.kinds.includes(kind)}
+                      onChange={(e) =>
+                        setShareDraft((p) => ({
+                          ...p,
+                          kinds: e.target.checked
+                            ? [...p.kinds, kind]
+                            : p.kinds.filter((k) => k !== kind),
+                        }))
+                      }
+                    />
+                    {label}
+                  </label>
+                ))}
+              </fieldset>
+              <label>
+                Share from
+                <input
+                  type="date"
+                  value={shareDraft.start ?? ""}
+                  onChange={(e) =>
+                    setShareDraft((p) => ({
+                      ...p,
+                      start: e.target.value || undefined,
+                    }))
+                  }
+                />
+              </label>
+              <label>
+                Share through
+                <input
+                  type="date"
+                  value={shareDraft.end ?? ""}
+                  onChange={(e) =>
+                    setShareDraft((p) => ({
+                      ...p,
+                      end: e.target.value || undefined,
+                    }))
+                  }
+                />
+              </label>
+              <label>
+                Expires at (UTC)
+                <input
+                  type="datetime-local"
+                  value={shareDraft.expires?.slice(0, 16) ?? ""}
+                  onChange={(e) =>
+                    setShareDraft((p) => ({
+                      ...p,
+                      expires: e.target.value
+                        ? e.target.value + ":00.000Z"
+                        : undefined,
+                    }))
+                  }
+                />
+              </label>
+            </div>
             {member.shareUrl ? (
               <>
                 <label className="field-label">
@@ -932,6 +1089,13 @@ function App() {
                     }
                   >
                     Copy link
+                  </button>
+                  <button
+                    className="button secondary"
+                    disabled={busy || !shareDraft.kinds.length}
+                    onClick={() => share(true)}
+                  >
+                    Save sharing restrictions
                   </button>
                   <button
                     className="button secondary"
@@ -1050,9 +1214,14 @@ function App() {
               ))}
             </div>
             <p>
-              Visitors will see the same charts, date controls, record details,
-              reference points, and body measurements as your dashboard, across
-              all imported history.
+              Visitors can see:{" "}
+              {shareDraft.kinds
+                .map((k) => (k === "cycle" ? "strain" : k))
+                .join(", ")}
+              . Date limits: {shareDraft.start ?? "earliest"} to{" "}
+              {shareDraft.end ?? "latest"}. Expires:{" "}
+              {shareDraft.expires ?? "never"}. Unselected metrics are excluded
+              by the server.
             </p>
           </div>
           <p>
@@ -1061,10 +1230,10 @@ function App() {
           </p>
           <button
             className="button"
-            disabled={busy}
+            disabled={busy || !shareDraft.kinds.length}
             onClick={() => share(true)}
           >
-            Enable full-dashboard sharing <ArrowRight size={15} />
+            Enable dashboard sharing <ArrowRight size={15} />
           </button>
         </Modal>
       )}
@@ -1513,9 +1682,10 @@ function Privacy() {
       <h2>Private unless you share</h2>
       <p>
         Only your signed-in account can access your dashboard by default. If you
-        enable public sharing, anyone with the link can see your name and full
-        dashboard history, including detailed physiology, workouts, and body
-        measurements. Public views exclude email, credentials, raw exports, and
+        enable public sharing, anyone with the link can see your name and the
+        metrics and date range you select until the link expires or is revoked.
+        Existing full-history links retain their scope until you change their
+        settings. Public views exclude email, credentials, raw exports, and
         account controls. Turning sharing off invalidates the link immediately;
         it cannot retract copies visitors already made.
       </p>

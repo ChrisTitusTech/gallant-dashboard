@@ -1,3 +1,5 @@
+import { completeness } from "../server/history";
+import { today } from "./dates";
 import { explorationHistory } from "../server/explore";
 import { bucket, daily, summarize, type Detail } from "../server/domain";
 import { analyticsPayload, lifetimeStats } from "../server/analytics";
@@ -5,7 +7,7 @@ import type { Dashboard } from "./types";
 export function sample(start: string, end: string): Dashboard {
   const details: Detail[] = [];
   const first = "2023-01-01";
-  const latest = new Date().toISOString().slice(0, 10);
+  const latest = today();
   for (
     let t = Date.parse(first), i = 0;
     t <= Date.parse(latest);
@@ -110,6 +112,10 @@ export function sample(start: string, end: string): Dashboard {
     analytics: analyticsPayload(details, start, end),
     lifetime: lifetimeStats(details),
     exploration: explorationHistory(details),
+    completeness: completeness(
+      details,
+      current.map((d) => d.date),
+    ),
     name: "Alex Morgan",
     start,
     end,

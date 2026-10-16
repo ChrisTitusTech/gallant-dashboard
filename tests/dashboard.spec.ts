@@ -88,14 +88,25 @@ test("private account settings require a preview before publishing", async ({
     route.fulfill({ json: { connected: true, lastSync: null, jobs: [] } }),
   );
   let published = false;
+  let publishedPolicy: { kinds: string[] } | undefined;
   await page.route("**/api/me/sharing", (route) => {
     published = true;
+    publishedPolicy = route.request().postDataJSON().policy;
     return route.fulfill({
       json: { shareUrl: "http://localhost:5173/share/example-public-link" },
     });
   });
   await page.goto("/");
+  await expect(
+    page.getByRole("heading", { name: "Data completeness" }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Share", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .screenshot({
+      path: `test-results/sharing-options-${info.project.name}.png`,
+      animations: "disabled",
+    });
   await page
     .getByRole("button", { name: "Preview public sharing", exact: false })
     .click();
@@ -108,7 +119,7 @@ test("private account settings require a preview before publishing", async ({
   });
   await page
     .getByRole("button", {
-      name: "Enable full-dashboard sharing",
+      name: "Enable dashboard sharing",
       exact: false,
     })
     .click();
@@ -116,6 +127,8 @@ test("private account settings require a preview before publishing", async ({
     "Your public link is ready.",
   );
   expect(published).toBe(true);
+  expect(publishedPolicy?.kinds).not.toContain("body");
+  expect(publishedPolicy?.kinds).toContain("recovery");
 });
 test("public dashboard has no exports or account mutations", async ({
   page,
@@ -356,4 +369,85 @@ test("exploration views explain empty histories", async ({ page }, info) => {
     await page.getByRole("button", { name, exact: true }).click();
     await expect(page.getByText(message, { exact: false })).toBeVisible();
   }
+});
+
+test("local date defaults, URL history, and mobile navigation remain accessible", async ({
+  page,
+}, info) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.clock.setFixedTime(new Date("2026-10-17T01:00:00Z"));
+  // Browser context timezone is configured in this test's dedicated context below for the boundary case.
+  await page.goto("/demo");
+  if (info.project.name === "mobile") {
+    await page.keyboard.press("Tab");
+    expect(
+      await page.evaluate(() => !!document.activeElement?.closest(".sidebar")),
+    ).toBe(false);
+    const toggle = page.getByRole("button", { name: "Open navigation" });
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await page.keyboard.press("Escape");
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(toggle).toBeFocused();
+    await toggle.click();
+  }
+  await page.getByRole("button", { name: "Workouts", exact: true }).click();
+  await page.getByLabel("Sport", { exact: true }).selectOption("Running");
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Workout explorer", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Sport", { exact: true })).toHaveValue(
+    "Running",
+  );
+  await page.getByLabel("Sort workouts").selectOption("strain");
+  await page.goBack();
+  await expect(page.getByLabel("Sort workouts")).toHaveValue("newest");
+});
+test("Chicago evening uses the local day instead of tomorrow UTC", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({ timezoneId: "America/Chicago" });
+  const page = await context.newPage();
+  await page.clock.setFixedTime(new Date("2026-10-17T01:00:00Z"));
+  await page.goto("http://127.0.0.1:5173/demo");
+  await expect(page.getByLabel("End date")).toHaveValue("2026-10-16");
+  await context.close();
+});
+
+test("range responses reuse full-history context without losing lifetime data", async ({
+  page,
+}) => {
+  const initial = sample("2026-09-16", "2026-10-15");
+  await page.route("**/api/me", (route) =>
+    route.fulfill({
+      json: { name: "Test Member", connected: true, shareUrl: null },
+    }),
+  );
+  await page.route("**/api/me/sync", (route) =>
+    route.fulfill({ json: { connected: true, lastSync: null, jobs: [] } }),
+  );
+  let reused = false;
+  await page.route("**/api/me/dashboard?*", (route) => {
+    const url = new URL(route.request().url());
+    const data: Record<string, any> = {
+      ...sample(url.searchParams.get("start")!, url.searchParams.get("end")!),
+      contextVersion: "fixture-v1",
+    };
+    if (url.searchParams.get("context") === "fixture-v1") {
+      reused = true;
+      delete data.lifetime;
+      delete data.exploration;
+      delete data.analytics.calendar;
+    }
+    return route.fulfill({ json: data });
+  });
+  await page.goto("/");
+  const lifetime = page.getByRole("region", { name: "Lifetime statistics" });
+  await expect(lifetime).toContainText(initial.earliest!);
+  const original = await lifetime.innerText();
+  await page.getByRole("button", { name: "7 days", exact: true }).click();
+  await expect(page.locator(".history tbody tr")).toHaveCount(7);
+  await expect(lifetime).toHaveText(original, { useInnerText: true });
+  expect(reused).toBe(true);
 });

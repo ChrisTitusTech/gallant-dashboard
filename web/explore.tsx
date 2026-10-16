@@ -1,3 +1,4 @@
+import { useUrlState } from "./url-state";
 import { useState } from "react";
 import {
   ResponsiveContainer,
@@ -71,8 +72,11 @@ export function WorkoutExplorer({
   data: Dashboard;
   onSelect: (date: string) => void;
 }) {
-  const [filters, setFilters] = useState<WorkoutFilters>({});
-  const [sort, setSort] = useState("newest");
+  const [filters, setFilters] = useUrlState<WorkoutFilters>(
+    "workoutFilters",
+    {},
+  );
+  const [sort, setSort] = useUrlState("workoutSort", "newest");
   const [page, setPage] = useState(0);
   const result = exploreWorkouts(data.details, filters);
   const rows = result.rows.slice().sort((a, b) => {
@@ -311,9 +315,9 @@ export function PersonalCorrelations({
   data: Dashboard;
   onSelect: (date: string) => void;
 }) {
-  const [x, setX] = useState<Metric>("hours"),
-    [y, setY] = useState<Metric>("recovery"),
-    [lag, setLag] = useState<0 | 1>(0);
+  const [x, setX] = useUrlState<Metric>("input", "hours"),
+    [y, setY] = useUrlState<Metric>("outcome", "recovery"),
+    [lag, setLag] = useUrlState<0 | 1>("lag", 0);
   const result = correlations(
     data.exploration.filter((d) => d.date >= data.start && d.date <= data.end),
     x,
@@ -425,9 +429,9 @@ export function YearComparison({ data }: { data: Dashboard }) {
   const years = [
     ...new Set(data.exploration.map((d) => Number(d.date.slice(0, 4)))),
   ].sort((a, b) => b - a);
-  const [first, setFirst] = useState<number | null>(null),
-    [second, setSecond] = useState<number | null>(null),
-    [metric, setMetric] = useState<Metric>("strain");
+  const [first, setFirst] = useUrlState<number | null>("firstYear", null),
+    [second, setSecond] = useUrlState<number | null>("secondYear", null),
+    [metric, setMetric] = useUrlState<Metric>("yearMetric", "strain");
   const a = first !== null && years.includes(first) ? first : years[0],
     b = second !== null && years.includes(second) ? second : years[1];
   const rows = a && b ? compareYears(data.exploration, a, b, metric) : [];
