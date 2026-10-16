@@ -26,7 +26,11 @@ try {
     await page
       .getByRole("heading", { name: "Your effort. Your rhythm." })
       .waitFor();
+    const lifetime = page.getByRole("region", { name: "Lifetime statistics" });
+    await expect(lifetime).toContainText("Average strain");
+    const lifetimeText = await lifetime.innerText();
     await page.getByRole("button", { name: "7 days", exact: true }).click();
+    await expect(lifetime).toHaveText(lifetimeText, { useInnerText: true });
     await expect(page.locator("tbody tr")).toHaveCount(7);
     await page
       .getByRole("button", { name: /^View \d/ })

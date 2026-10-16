@@ -25,7 +25,7 @@ import {
   randomToken,
   validSignature,
 } from "./security.js";
-import { analyticsPayload } from "./analytics.js";
+import { analyticsPayload, lifetimeStats } from "./analytics.js";
 import { bucket, daily, makeDetails, summarize } from "./domain.js";
 import { enqueue, enqueueSync } from "./sync.js";
 import {
@@ -102,6 +102,7 @@ async function dashboard(member: typeof members.$inferSelect, query: unknown) {
   const chart = bucket(current);
   return {
     analytics: analyticsPayload(history, start, end),
+    lifetime: lifetimeStats(history),
     name: member.name,
     start,
     end,

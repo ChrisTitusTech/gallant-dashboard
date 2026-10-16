@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { sample } from "../web/demo";
-import { analyticsPayload } from "../server/analytics";
+import { analyticsPayload, lifetimeStats } from "../server/analytics";
 
 test("landing page identifies demo data and provides WHOOP sign-in", async ({
   page,
@@ -194,6 +194,7 @@ test("empty histories keep gaps distinct and calendar days work with a keyboard"
   await page.clock.setFixedTime(new Date("2026-10-15T12:00:00Z"));
   const empty = {
     ...sample("2026-09-16", "2026-10-15"),
+    lifetime: lifetimeStats([]),
     earliest: null,
     latest: null,
     details: [],
@@ -228,6 +229,30 @@ test("empty histories keep gaps distinct and calendar days work with a keyboard"
   await expect(page.getByText("No scored data for this period.")).toHaveCount(
     4,
   );
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+});
+
+test("lifetime statistics stay constant across chart ranges", async ({
+  page,
+}, info) => {
+  await page.clock.setFixedTime(new Date("2026-10-15T12:00:00Z"));
+  await page.goto("/demo");
+  const lifetime = page.getByRole("region", { name: "Lifetime statistics" });
+  await expect(lifetime).toContainText("2023-01-01");
+  await expect(lifetime).toContainText("Average strain");
+  const original = await lifetime.innerText();
+  for (const range of ["7 days", "1 year"]) {
+    await page.getByRole("button", { name: range, exact: true }).click();
+    await expect(lifetime).toHaveText(original, { useInnerText: true });
+  }
+  await lifetime.scrollIntoViewIfNeeded();
+  await lifetime.screenshot({
+    path: `test-results/lifetime-${info.project.name}.png`,
+  });
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,

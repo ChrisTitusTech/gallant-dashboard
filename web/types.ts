@@ -1,6 +1,7 @@
 import type { Day, Detail } from "../server/domain";
 export type Summary = Record<string, { value: number | null; count: number }>;
 export type Dashboard = {
+  lifetime: ReturnType<typeof import("../server/analytics").lifetimeStats>;
   analytics: ReturnType<typeof import("../server/analytics").analyticsPayload>;
   name: string;
   start: string;

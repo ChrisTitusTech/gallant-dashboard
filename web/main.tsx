@@ -40,6 +40,7 @@ import {
 } from "recharts";
 import type { Dashboard, Member, Sync } from "./types";
 import { sample } from "./demo";
+import { LifetimeStats } from "./lifetime";
 import "./style.css";
 import { SleepAnalytics, RecoveryAnalytics, YearCalendar } from "./analytics";
 
@@ -594,6 +595,9 @@ function App() {
                   )}
                   {tab === "recovery" && (
                     <RecoveryAnalytics data={data} onSelect={setSelected} />
+                  )}
+                  {tab === "overview" && (
+                    <LifetimeStats stats={data.lifetime} />
                   )}
                   {tab === "overview" && (
                     <YearCalendar

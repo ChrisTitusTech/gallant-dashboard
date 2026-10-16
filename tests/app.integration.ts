@@ -101,6 +101,14 @@ test("authentication, date validation, and ownership are enforced by the API", a
   });
   assert.equal(a.json().summary.strain.value, 12);
   assert.equal(b.json().summary.strain.value, 20);
+  assert.equal(a.json().lifetime.metrics.strain.average, 12);
+  assert.equal(b.json().lifetime.metrics.strain.average, 20);
+  const outside = await app.inject({
+    url: "/api/me/dashboard?start=2020-01-01&end=2020-01-02",
+    headers: { cookie: cookieA },
+  });
+  assert.deepEqual(outside.json().lifetime, a.json().lifetime);
+  assert.equal(outside.json().summary.strain.value, null);
   assert.equal(a.json().analytics.calendar[0].strain, 12);
   assert.equal(b.json().analytics.calendar[0].strain, 20);
   assert.equal(a.json().analytics.recovery.length, 3);
@@ -143,6 +151,7 @@ test("public links are explicit, sanitized, read-only, and immediately revocable
   );
   assert.equal(shared.statusCode, 200);
   assert.equal(shared.json().name, "Member A");
+  assert.equal(shared.json().lifetime.metrics.strain.average, 12);
   assert.equal(shared.json().analytics.calendar[0].strain, 12);
   assert.ok(!shared.body.includes("private@example.test"));
   assert.ok(!shared.body.includes("whoopId"));

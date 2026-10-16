@@ -161,3 +161,72 @@ export function aggregateAnalytics<T extends { date: string }>(
     })),
   };
 }
+
+export function lifetimeStats(details: Detail[]) {
+  const history = details.filter((d) =>
+    ["cycle", "sleep", "recovery", "workout"].includes(d.kind),
+  );
+  const dates = history.map((d) => d.date).sort();
+  const firstDate = dates[0] ?? null;
+  const lastDate = dates.at(-1) ?? null;
+  const days = firstDate && lastDate ? daily(history, firstDate, lastDate) : [];
+  const keys = ["strain", "sleep", "recovery", "hours", "hrv", "rhr"] as const;
+  const metrics = Object.fromEntries(
+    keys.map((key) => {
+      const scored = days.filter((d) => d[key] !== null);
+      const extreme = (highest: boolean) => {
+        const best = scored.reduce<Day | null>(
+          (a, b) =>
+            !a || (highest ? b[key]! > a[key]! : b[key]! < a[key]!) ? b : a,
+          null,
+        );
+        return best ? { value: best[key]!, date: best.date } : null;
+      };
+      return [
+        key,
+        {
+          average: average(scored.map((d) => d[key])),
+          count: scored.length,
+          highest: extreme(true),
+          lowest: extreme(false),
+        },
+      ];
+    }),
+  );
+  const sum = (values: (number | null)[]) => {
+    const available = values.filter(
+      (v): v is number => v !== null && Number.isFinite(v),
+    );
+    return available.length ? available.reduce((a, b) => a + b, 0) : null;
+  };
+  const sleeps = history.filter(
+    (d) => d.kind === "sleep" && d.state === "SCORED",
+  );
+  const nights = sleeps.filter((d) => !d.nap);
+  const workouts = history.filter((d) => d.kind === "workout");
+  const durations = workouts.map((d) => {
+    const hours = d.end
+      ? (Date.parse(d.end) - Date.parse(d.start)) / 3600000
+      : NaN;
+    return Number.isFinite(hours) && hours >= 0 ? hours : null;
+  });
+  return {
+    firstDate,
+    lastDate,
+    daysRecorded: days.filter(
+      (d) => d.strain !== null || d.sleep !== null || d.recovery !== null,
+    ).length,
+    metrics,
+    greenRecoveryDays: days.filter(
+      (d) => d.recovery !== null && d.recovery >= 67,
+    ).length,
+    sleepHours: sum(nights.map((d) => d.metrics.sleep_hours ?? null)),
+    nights: nights.filter((d) => d.metrics.sleep_hours != null).length,
+    napHours: sum(
+      sleeps.filter((d) => d.nap).map((d) => d.metrics.sleep_hours ?? null),
+    ),
+    workouts: workouts.length,
+    workoutHours: sum(durations),
+    timedWorkouts: durations.filter((d) => d !== null).length,
+  };
+}

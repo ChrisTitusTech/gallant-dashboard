@@ -34,6 +34,9 @@ Setup, validation, deployment, backup, restore, and API instructions follow belo
 
 ## Features
 
+- Lifetime statistics across all imported history: daily averages and high/low dates, nightly sleep and nap totals, workout counts and hours, and green recovery days. Chart range changes do not alter lifetime statistics. Missing readings are excluded.
+- Daily grouping uses the associated main sleep's local wake date, keeping pre-midnight cycle starts aligned with sleep and recovery.
+
 - WHOOP OAuth sign-in with private sessions and encrypted rotating tokens.
 - Resumable full-history imports of cycles, sleep, recovery, and workouts, plus profile and current body-measurement snapshots.
 - Strain, sleep, and recovery charts, rolling averages, prior-period comparisons, daily details, and private CSV/JSON exports.

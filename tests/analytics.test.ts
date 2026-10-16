@@ -105,3 +105,44 @@ test("long-range analytics averages available observations and keeps all-missing
   assert.ok(monthly.points.every((p) => p.hours === 8 && p.missing === null));
   assert.equal(analytics.aggregateAnalytics(rows.slice(0, 200)).mode, "week");
 });
+
+test("lifetime statistics exclude gaps, retain zero, and separate nights, naps, and workouts", () => {
+  assert.equal(typeof analytics.lifetimeStats, "function");
+  const details = [
+    row("2026-01-01", "cycle", { strain: 0 }),
+    row("2026-01-03", "cycle", { strain: 20 }),
+    row("2026-01-01", "recovery", { recovery_score: 80 }),
+    row("2026-01-03", "recovery", { recovery_score: 40 }),
+    row("2026-01-01", "sleep", {
+      sleep_hours: 8,
+      sleep_performance_percentage: 90,
+    }),
+    row("2026-01-01", "sleep", { sleep_hours: 1 }, true),
+    {
+      ...row("2026-01-03", "workout", {}),
+      start: "2026-01-03T12:00:00Z",
+      end: "2026-01-03T13:30:00Z",
+    },
+    row("2026-01-04", "workout", {}),
+  ];
+  const result = analytics.lifetimeStats(details);
+  assert.equal(result.daysRecorded, 2);
+  assert.equal(result.metrics.strain.average, 10);
+  assert.equal(result.metrics.strain.count, 2);
+  assert.deepEqual(result.metrics.strain.highest, {
+    value: 20,
+    date: "2026-01-03",
+  });
+  assert.equal(result.greenRecoveryDays, 1);
+  assert.equal(result.sleepHours, 8);
+  assert.equal(result.napHours, 1);
+  assert.equal(result.workouts, 2);
+  assert.equal(result.workoutHours, 1.5);
+  assert.equal(result.timedWorkouts, 1);
+  assert.equal(result.lastDate, "2026-01-04");
+  const empty = analytics.lifetimeStats([]);
+  assert.equal(empty.firstDate, null);
+  assert.equal(empty.metrics.strain.average, null);
+  assert.equal(empty.metrics.strain.highest, null);
+  assert.equal(empty.sleepHours, null);
+});

@@ -38,7 +38,9 @@ The worker imports cycles, sleep, recovery, and workouts through paginated API r
 
 Sessions and every private query are scoped to a member. Public sharing is opt-in and revocable; public responses project allowed dashboard fields rather than exposing raw payloads or account credentials. Authenticated exports can include raw WHOOP data. Dashboard and sharing responses are not cached.
 
-Missing scores remain gaps. Chart aggregation averages daily strain rather than adding it. Cycle relationships and recorded timezone offsets determine daily grouping; naps remain distinct records.
+Missing scores remain gaps. Chart aggregation averages daily strain rather than adding it. Cycle relationships and recorded timezone offsets determine daily grouping. An associated completed main sleep anchors its cycle to the local wake date, including sleeps linked through recovery. Without main sleep, the stored local cycle date is the fallback. Related recovery, sleep, and interval-matched workouts use the same projected date; naps cannot move the cycle. Raw records remain unchanged.
+
+Lifetime statistics use all member history, independent of the selected range. Daily metric averages and extrema exclude missing scores and retain zero. Sleep duration totals count scored main sleeps, with naps reported separately; workout duration includes only valid intervals and reports its observation count. Lifetime fields use the same member isolation and opt-in sharing boundaries as the dashboard.
 
 ## Operations
 

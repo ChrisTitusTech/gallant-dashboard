@@ -1,14 +1,13 @@
 import { bucket, daily, summarize, type Detail } from "../server/domain";
-import { analyticsPayload } from "../server/analytics";
+import { analyticsPayload, lifetimeStats } from "../server/analytics";
 import type { Dashboard } from "./types";
 export function sample(start: string, end: string): Dashboard {
   const details: Detail[] = [];
-  const first = new Date(Date.parse(start) - 400 * 86400000)
-    .toISOString()
-    .slice(0, 10);
+  const first = "2023-01-01";
+  const latest = new Date().toISOString().slice(0, 10);
   for (
     let t = Date.parse(first), i = 0;
-    t <= Date.parse(end);
+    t <= Date.parse(latest);
     t += 86400000, i++
   ) {
     const date = new Date(t).toISOString().slice(0, 10);
@@ -61,11 +60,23 @@ export function sample(start: string, end: string): Dashboard {
         nap: true,
         metrics: { sleep_hours: 0.5 },
       });
+    if (i % 3 === 0)
+      details.push({
+        ...base,
+        kind: "workout",
+        sport: "Running",
+        metrics: { strain: 9 },
+        start: date + "T16:00:00Z",
+        end: date + "T17:00:00Z",
+      });
     details.push({
       ...base,
       kind: "recovery",
       metrics: {
-        recovery_score: Math.round(66 + 25 * Math.sin(i * 0.48) + 10 * noise),
+        recovery_score: Math.min(
+          100,
+          Math.round(66 + 25 * Math.sin(i * 0.48) + 10 * noise),
+        ),
         hrv_rmssd_milli: 68 + 12 * Math.sin(i * 0.48),
         resting_heart_rate: 52 + 4 * Math.sin(i * 0.48),
         spo2_percentage: 97.2,
@@ -84,11 +95,12 @@ export function sample(start: string, end: string): Dashboard {
   const current = days.filter((d) => d.date >= start);
   return {
     analytics: analyticsPayload(details, start, end),
+    lifetime: lifetimeStats(details),
     name: "Alex Morgan",
     start,
     end,
     earliest: first,
-    latest: end,
+    latest,
     lastSync: null,
     summary: summarize(current),
     previous: summarize(days.filter((d) => d.date < start)),

@@ -62,3 +62,12 @@ Implementation and acceptance details are in [the analytics plan](docs/analytics
 - [x] Validate 14 unit tests, 13 database integration tests, and 12 browser tests, including encoded-path rejection and worker shutdown. Typecheck, lint, production build, ShellCheck, formatting checks, and migration generation pass.
 
 Postgres.js documents bounded teardown in its [cleanup guidance](https://github.com/porsager/postgres#teardown--cleanup). The regression specifically exercises an expired reserved connection; increasing systemd's stop timeout would not resolve the hang.
+
+## Cycle dates and lifetime statistics
+
+- [x] Reproduce and fix pre-midnight cycles collapsing onto the previous date; anchor to main sleep local wake date without rewriting raw history.
+- [x] Cover recovery-linked sleeps without cycle IDs, nap exclusion, timezone boundaries, workout alignment, and stable input ordering.
+- [x] Add full-history averages, extrema with dates, coverage counts, nightly sleep/nap totals, workouts and duration, and green recovery days.
+- [x] Verify lifetime values remain independent of date filters and isolated per member, including shared dashboards.
+- [x] Pass 17 unit, 13 database integration, and 14 desktop/mobile browser tests; typecheck, lint, production build, and dependency audit pass.
+Release acceptance: publish and deploy, then verify the October 15 projection against production records and run desktop/mobile smoke checks. Report live evidence with the deployed revision.
