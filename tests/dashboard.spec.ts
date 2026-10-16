@@ -101,12 +101,10 @@ test("private account settings require a preview before publishing", async ({
     page.getByRole("heading", { name: "Data completeness" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Share", exact: true }).click();
-  await page
-    .getByRole("dialog")
-    .screenshot({
-      path: `test-results/sharing-options-${info.project.name}.png`,
-      animations: "disabled",
-    });
+  await page.getByRole("dialog").screenshot({
+    path: `test-results/sharing-options-${info.project.name}.png`,
+    animations: "disabled",
+  });
   await page
     .getByRole("button", { name: "Preview public sharing", exact: false })
     .click();
@@ -450,4 +448,32 @@ test("range responses reuse full-history context without losing lifetime data", 
   await expect(page.locator(".history tbody tr")).toHaveCount(7);
   await expect(lifetime).toHaveText(original, { useInnerText: true });
   expect(reused).toBe(true);
+});
+
+test("existing unrestricted share settings accurately include body measurements", async ({
+  page,
+}) => {
+  await page.route("**/api/me", (route) =>
+    route.fulfill({
+      json: {
+        name: "Test Member",
+        connected: true,
+        shareUrl: "https://example.test/share/synthetic",
+        sharePolicy: null,
+      },
+    }),
+  );
+  await page.route("**/api/me/sync", (route) =>
+    route.fulfill({ json: { connected: true, lastSync: null, jobs: [] } }),
+  );
+  await page.route("**/api/me/dashboard?*", (route) =>
+    route.fulfill({ json: sample("2026-10-01", "2026-10-15") }),
+  );
+  await page.goto("/");
+  await page.getByRole("button", { name: "Share", exact: true }).click();
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByRole("checkbox", { name: "Body measurements" }),
+  ).toBeChecked();
 });

@@ -155,7 +155,11 @@ function App() {
   >({ kinds: ["cycle", "sleep", "recovery", "workout"] });
   useEffect(() => {
     if (member?.sharePolicy) setShareDraft(member.sharePolicy);
-  }, [member?.sharePolicy]);
+    else if (member?.shareUrl)
+      setShareDraft({
+        kinds: ["cycle", "sleep", "recovery", "workout", "body"],
+      });
+  }, [member?.sharePolicy, member?.shareUrl]);
   useEffect(() => {
     if (!demo && !shared && !privacy)
       api<Member>("/api/me")
