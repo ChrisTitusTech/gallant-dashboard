@@ -155,3 +155,31 @@ test("CSV output escapes formulas, quotes, and embedded newlines", () => {
   assert.equal(csvCell('=HYPERLINK("x")'), '"\'=HYPERLINK(""x"")"');
   assert.equal(csvCell("two\nlines"), '"two\nlines"');
 });
+
+test("sleep need uses the signed nap adjustment and preserves missing components", () => {
+  const make = (need: Record<string, number>) =>
+    detail(
+      normalize("sleep", {
+        id: "night",
+        start: "2026-01-01T05:30:00Z",
+        end: "2026-01-01T13:30:00Z",
+        timezone_offset: "-06:00",
+        score_state: "SCORED",
+        score: { sleep_needed: need },
+      }),
+    );
+  const night = make({
+    baseline_milli: 28800000,
+    need_from_sleep_debt_milli: 3600000,
+    need_from_recent_strain_milli: 0,
+    need_from_recent_nap_milli: -1800000,
+  });
+  assert.equal(night.metrics.sleep_needed_hours, 8.5);
+  assert.equal(night.metrics.sleep_debt_hours, 1);
+  assert.equal(night.metrics.bedtime_hour, 23.5);
+  assert.equal(night.metrics.wake_hour, 7.5);
+  assert.equal(
+    make({ baseline_milli: 28800000 }).metrics.sleep_needed_hours,
+    null,
+  );
+});

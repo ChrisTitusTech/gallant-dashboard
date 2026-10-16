@@ -1,0 +1,29 @@
+# Historical analytics implementation plan
+
+Scope: the three recommended additions approved in conversation: sleep analytics, personal HRV/resting-heart-rate baselines, and a yearly calendar heatmap. Workout exploration, correlations, journals, and weekly reports remain future work.
+
+## Phase 1: calculations and API
+
+- Add explicit analytics projections using existing member-scoped records; no migration or new OAuth scopes.
+- Sleep: main-sleep stage totals, hours versus WHOOP need, debt contribution, efficiency/consistency, recorded-local bedtime and wake time. Keep naps separate. Preserve missing values and zero.
+- Recovery: daily HRV and resting heart rate versus the preceding 28 calendar days, excluding the current day. Require at least seven valid observations per metric; show observation counts and gaps. Fetch context before the selected range.
+- Calendar: independent full-year view of strain, sleep, or recovery, with missing dates distinct from zero and future dates disabled. Retain existing tenant/sharing boundaries.
+- Unit checks: signed nap adjustment, missing fields, naps, timezone boundaries, baseline warmup and gaps, leap years.
+
+## Phase 2: interface
+
+- Add sleep charts to Sleep and baseline charts to Recovery, preserving the compact overview.
+- Add an overview calendar with year/metric selectors, month labels, accessible day buttons, and day-detail drilldown including dates outside the selected chart range.
+- Use existing Recharts and visual styling. Long sleep/recovery series use weekly/monthly averages with clear labels; calendar always shows individual days.
+- Synthetic demo includes varied stages, timing, and naps. No real member data enters fixtures or screenshots.
+- Browser checks cover controls, details, empty data, keyboard access, and desktop/mobile overflow.
+
+## Phase 3: acceptance
+
+Run typecheck, lint, unit tests, build, isolated PostgreSQL integration tests, and desktop/mobile browser tests. Inspect screenshots and review the final diff. Record validation and make coherent local commits. Publishing/deployment is outside this implementation request; no production or database changes are necessary. Rollback is reverting the application commits.
+
+## Progress
+
+- [x] Calculations and API verified
+- [ ] Interface and browser acceptance verified
+- [ ] Documentation, final checks, and local commits complete

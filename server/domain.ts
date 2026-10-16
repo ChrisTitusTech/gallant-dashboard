@@ -145,16 +145,37 @@ export function detail(record: StoredRecord, date = record.localDate): Detail {
     metrics.sleep_hours = stages.every((n) => n !== null)
       ? stages.reduce((a, b) => a! + b!, 0)! / 3600000
       : null;
-    const need = s.sleep_needed;
-    metrics.sleep_needed_hours = need
-      ? (need.baseline_milli +
-          need.need_from_sleep_debt_milli +
-          need.need_from_recent_strain_milli -
-          need.need_from_recent_nap_milli) /
-        3600000
+    const need = s.sleep_needed ?? {};
+    const parts = [
+      "baseline_milli",
+      "need_from_sleep_debt_milli",
+      "need_from_recent_strain_milli",
+      "need_from_recent_nap_milli",
+    ].map((k) => finite(need[k]));
+    metrics.sleep_needed_hours = parts.every((n) => n !== null)
+      ? parts.reduce<number>((sum, n) => sum + n!, 0) / 3600000
       : null;
-    if (!Number.isFinite(metrics.sleep_needed_hours))
-      metrics.sleep_needed_hours = null;
+    metrics.sleep_debt_hours =
+      finite(need.need_from_sleep_debt_milli) === null
+        ? null
+        : need.need_from_sleep_debt_milli / 3600000;
+    const offset = /^([+-])(\d{2}):(\d{2})$/.exec(r.timezone_offset ?? "");
+    const minutes = offset
+      ? (Number(offset[2]) * 60 + Number(offset[3])) *
+        (offset[1] === "-" ? -1 : 1)
+      : null;
+    for (const [key, time] of [
+      ["bedtime_hour", record.start],
+      ["wake_hour", record.end],
+    ] as const) {
+      const date =
+        time && minutes !== null
+          ? new Date(time.getTime() + minutes * 60000)
+          : null;
+      metrics[key] = date
+        ? date.getUTCHours() + date.getUTCMinutes() / 60
+        : null;
+    }
   }
   if (record.kind === "recovery")
     add([

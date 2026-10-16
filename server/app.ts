@@ -25,6 +25,7 @@ import {
   randomToken,
   validSignature,
 } from "./security.js";
+import { analyticsPayload } from "./analytics.js";
 import { bucket, daily, makeDetails, summarize } from "./domain.js";
 import { enqueue, enqueueSync } from "./sync.js";
 import {
@@ -100,6 +101,7 @@ async function dashboard(member: typeof members.$inferSelect, query: unknown) {
   const previous = days.filter((d) => d.date < start);
   const chart = bucket(current);
   return {
+    analytics: analyticsPayload(history, start, end),
     name: member.name,
     start,
     end,

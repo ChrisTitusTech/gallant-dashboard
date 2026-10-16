@@ -99,6 +99,10 @@ test("authentication, date validation, and ownership are enforced by the API", a
   });
   assert.equal(a.json().summary.strain.value, 12);
   assert.equal(b.json().summary.strain.value, 20);
+  assert.equal(a.json().analytics.calendar[0].strain, 12);
+  assert.equal(b.json().analytics.calendar[0].strain, 20);
+  assert.equal(a.json().analytics.recovery.length, 3);
+  assert.equal(a.json().analytics.sleep.length, 3);
   assert.equal(
     (
       await app.inject({
@@ -137,6 +141,7 @@ test("public links are explicit, sanitized, read-only, and immediately revocable
   );
   assert.equal(shared.statusCode, 200);
   assert.equal(shared.json().name, "Member A");
+  assert.equal(shared.json().analytics.calendar[0].strain, 12);
   assert.ok(!shared.body.includes("private@example.test"));
   assert.ok(!shared.body.includes("whoopId"));
   assert.ok(!shared.body.includes("access_token"));

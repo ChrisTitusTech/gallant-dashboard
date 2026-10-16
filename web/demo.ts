@@ -1,4 +1,5 @@
 import { bucket, daily, summarize, type Detail } from "../server/domain";
+import { analyticsPayload } from "../server/analytics";
 import type { Dashboard } from "./types";
 export function sample(start: string, end: string): Dashboard {
   const details: Detail[] = [];
@@ -11,6 +12,7 @@ export function sample(start: string, end: string): Dashboard {
     t += 86400000, i++
   ) {
     const date = new Date(t).toISOString().slice(0, 10);
+    i = Math.floor(t / 86400000);
     const noise = (Math.sin(i * 12.9898) * 43758.5453) % 1;
     const base = {
       date,
@@ -38,14 +40,27 @@ export function sample(start: string, end: string): Dashboard {
         sleep_performance_percentage: 86 + 10 * Math.sin(i * 0.56),
         sleep_hours: 7.6 + 0.8 * Math.sin(i * 0.56),
         sleep_needed_hours: 8.2,
+        sleep_debt_hours: 0.4 + 0.3 * Math.sin(i * 0.4),
+        bedtime_hour: (23.5 + Math.sin(i * 0.56) + 24) % 24,
+        wake_hour: 7.5 + 0.5 * Math.sin(i * 0.56),
         sleep_efficiency_percentage: 92,
         sleep_consistency_percentage: 83,
         respiratory_rate: 15.2,
-        total_light_sleep_time_milli: 14000000,
-        total_slow_wave_sleep_time_milli: 6000000,
-        total_rem_sleep_time_milli: 7000000,
+        total_light_sleep_time_milli:
+          (7.6 + 0.8 * Math.sin(i * 0.56)) * 0.52 * 3600000,
+        total_slow_wave_sleep_time_milli:
+          (7.6 + 0.8 * Math.sin(i * 0.56)) * 0.22 * 3600000,
+        total_rem_sleep_time_milli:
+          (7.6 + 0.8 * Math.sin(i * 0.56)) * 0.26 * 3600000,
       },
     });
+    if (i % 5 === 0)
+      details.push({
+        ...base,
+        kind: "sleep",
+        nap: true,
+        metrics: { sleep_hours: 0.5 },
+      });
     details.push({
       ...base,
       kind: "recovery",
@@ -68,6 +83,7 @@ export function sample(start: string, end: string): Dashboard {
   const days = daily(details, previousStart, end);
   const current = days.filter((d) => d.date >= start);
   return {
+    analytics: analyticsPayload(details, start, end),
     name: "Alex Morgan",
     start,
     end,
