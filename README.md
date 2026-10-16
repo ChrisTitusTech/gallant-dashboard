@@ -52,6 +52,8 @@ pnpm exec playwright install chromium
 pnpm test:browser
 shellcheck deploy/*.sh
 shfmt -d deploy/*.sh
+# After a production deployment, exercise the actual public site:
+node deploy/smoke.mjs
 ```
 
 Integration tests refuse databases not named `gallant_test`. They test OAuth state and replay rejection, session rotation, tenant isolation, public sharing/revocation, refresh races, interrupted pagination, reconciliation, v2 webhook IDs, deletion events, request budgets, disconnect, and account deletion. Browser tests cover desktop/mobile layout, long history, dialogs, sharing previews, and public restrictions.
@@ -86,7 +88,7 @@ curl -I https://3spinningplates.com
 curl -I https://forum.christitus.com
 ```
 
-`activate.sh` installs locked production dependencies, starts the separate database, backs up an existing deployment, applies migrations, switches releases, and checks readiness. A failed application health check restores the prior application symlink. Database changes must remain backward compatible for this rollback; inspect future migrations before deployment.
+`activate.sh` copies locked production dependencies, makes public release files readable by the unprivileged service user, verifies runtime imports as that user, starts the separate database, backs up an existing deployment, applies migrations, switches releases, and checks readiness. A failed application health check restores the prior application symlink. Database changes must remain backward compatible for this rollback; inspect future migrations before deployment.
 
 Caddy runs in Docker with host networking. The live configuration is **`/etc/caddy/Caddyfile.active`**, mounted as `/etc/caddy/Caddyfile` inside the container. `caddy.sh` backs up this file, preserves its inode, appends only the WHOOP hostname, validates, and reloads Caddy. It restores the previous configuration if validation or reload fails. If later public checks fail, copy the printed backup back over the active file and reload Caddy. Do not change existing 3plates or forum routes.
 

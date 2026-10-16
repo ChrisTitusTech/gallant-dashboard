@@ -1,14 +1,43 @@
 # Implementation and acceptance
 
-- [x] Foundation, migrations, configuration, CI
+- [x] Foundation, migrations, configuration, CI definition
 - [x] WHOOP OAuth, private sessions, isolation, token rotation
 - [x] Durable full-history imports, webhooks, reconciliation, rate budgets
 - [x] Responsive dashboard, comparisons, details, exports, sharing
 - [x] Automated unit, database, and browser acceptance
-- [ ] Independent production deployment, HTTPS, backups, restore verification
+- [x] Independent production deployment, HTTPS, backups, restore verification
+- [ ] Confirm v2 webhook registration in the WHOOP Developer Dashboard
 - [ ] Chris authorizes WHOOP; compare recent and historical records with WHOOP
 
 Development remains entirely in this repository. Existing 3plates application and database are independent.
 No credentials or real member records may be committed. Public sharing is opt-in and includes full dashboard details, never raw payloads or account information.
 
-Local evidence: 8 unit tests, 11 PostgreSQL integration tests, and 8 desktop/mobile browser tests passed. Type checking, ESLint, and production build passed. Screenshots inspected at desktop and mobile sizes.
+## Verified on 2026-10-16 UTC
+
+- 8 unit tests, 12 PostgreSQL integration tests, and 8 desktop/mobile browser tests passed.
+- Type checking, ESLint, production build, ShellCheck, shell syntax checks, and `shfmt -d` passed.
+- Multi-year history, pagination, date selection, dialog keyboard behavior, private/public separation, and sharing preview covered in browser tests.
+- Production desktop/mobile smoke tests passed against the actual HTTPS deployment. Screenshots inspected. `node deploy/smoke.mjs` reproduces these checks without importing or changing member data.
+- Application revision `e2e1114` deployed at `/opt/gallant-dashboard/releases/e2e1114` and selected by `/opt/gallant-dashboard/current`.
+- Web and worker run as `gallant`, are enabled for boot, and passed an actual service restart. No host reboot was performed.
+- `/ready` returns ready, service restart counters are zero, and post-restart warning/error journal inspection was clean.
+- Database and API listen only on `127.0.0.1:5433` and `127.0.0.1:3100` respectively.
+- Production environment files are root-owned mode 600. A mode-600 ignored `.env.production` is the local recovery copy; original `.env` remains untouched. Tracked-file secret scan passed.
+- Caddy serves the WHOOP hostname over valid HTTPS. Existing 3plates and forum routes still return HTTP 200; 3plates API health passes.
+- WHOOP accepts the authorization redirect and routes to its login flow with the exact callback and offline scope. No real authorization code has yet been exchanged.
+- Anonymous private-data and export requests return 401. Missing share links return 404; shared HTML and APIs use no-store and noindex headers.
+- Nightly backup timer enabled; backup service executed successfully. A full database dump was restored to a temporary scratch database and validated, then that scratch database was removed. At the time of validation, production had zero members and zero imported records.
+
+## Resolved deployment findings
+
+The initial deployment found cached Node package permissions that prevented unprivileged services from reading dependencies. The activation script now copies packages, normalizes public release-file permissions, and imports runtime dependencies as the service user before activation. A first-install rollback path also incorrectly resolved a nonexistent current link; it now resolves only existing targets. Both fixes are committed and the subsequent release is healthy.
+
+Static serving originally replaced the application's no-store header. This was corrected and covered by a production-static integration test before the final release.
+
+## Remaining external acceptance
+
+No connected browser session was available to edit the WHOOP Developer Dashboard. Verify its v2 webhook URL is `https://whoop.3spinningplates.com/api/webhooks/whoop`, and its privacy URL is `https://whoop.3spinningplates.com/privacy`. The OAuth callback is `https://whoop.3spinningplates.com/callback`.
+
+Chris must connect at https://whoop.3spinningplates.com. Then verify the four historical collections reach their final pages, compare representative dates against WHOOP, and confirm a real webhook updates the dashboard. Fixture tests cannot prove actual account history coverage or webhook registration.
+
+GitHub CI is configured but has not run remotely because no push was requested. Commits remain local. Backups are on the VPS; off-server backup transport is not configured.
