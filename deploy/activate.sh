@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Run on the VPS as root after copying a built release and provisioning its secrets.
+set -euo pipefail
+release=${1:?Usage: activate.sh /opt/gallant-dashboard/releases/RELEASE}
+case "$release" in
+/opt/gallant-dashboard/releases/*) ;;
+*)
+	printf 'Release must be under /opt/gallant-dashboard/releases/\n' >&2
+	exit 2
+	;;
+esac
+[[ -f "$release/dist/server/server/main.js" && -f "$release/dist/web/index.html" ]]
+[[ -f /etc/gallant-dashboard.env && -f /etc/gallant-postgres.env ]]
+if ! id gallant >/dev/null 2>&1; then useradd --system --home-dir /opt/gallant-dashboard --shell /usr/sbin/nologin gallant; fi
+cd "$release"
+pnpm install --prod --frozen-lockfile
+docker compose -f deploy/compose.yml up -d --wait --wait-timeout 300
+if [[ -L /opt/gallant-dashboard/current ]]; then /opt/gallant-dashboard/current/deploy/backup.sh; fi
+# Node reads the protected environment directly; secrets never enter command arguments.
+node --env-file=/etc/gallant-dashboard.env dist/server/server/migrate.js
+previous=$(readlink -f /opt/gallant-dashboard/current || true)
+ln -sfn "$release" /opt/gallant-dashboard/current.next
+mv -Tf /opt/gallant-dashboard/current.next /opt/gallant-dashboard/current
+install -m 644 deploy/gallant-web.service deploy/gallant-worker.service deploy/gallant-backup.service deploy/gallant-backup.timer /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable gallant-web gallant-worker gallant-backup.timer
+systemctl restart gallant-web gallant-worker
+systemctl start gallant-backup.timer
+ready=false
+for _attempt in {1..30}; do
+	if curl -fsS --max-time 5 http://127.0.0.1:3100/ready >/dev/null; then
+		ready=true
+		break
+	fi
+	sleep 2
+done
+if [[ $ready != true ]]; then
+	printf 'Release failed readiness; restoring previous application release.\n' >&2
+	if [[ -n $previous && -d $previous ]]; then
+		ln -sfn "$previous" /opt/gallant-dashboard/current.next
+		mv -Tf /opt/gallant-dashboard/current.next /opt/gallant-dashboard/current
+		systemctl restart gallant-web gallant-worker
+	else
+		systemctl stop gallant-web gallant-worker
+	fi
+	exit 1
+fi
+printf 'Release activated: %s\nPrevious release: %s\n' "$release" "$previous"
