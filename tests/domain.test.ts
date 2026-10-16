@@ -1,0 +1,157 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { createHmac } from "node:crypto";
+import {
+  bucket,
+  daily,
+  detail,
+  localDate,
+  makeDetails,
+  normalize,
+  summarize,
+} from "../server/domain.js";
+import {
+  csvCell,
+  decrypt,
+  encrypt,
+  validSignature,
+} from "../server/security.js";
+
+test("recorded offsets preserve local dates across travel and UTC boundaries", () => {
+  assert.equal(localDate("2026-03-09T02:00:00Z", "-05:00"), "2026-03-08");
+  assert.equal(localDate("2026-03-09T20:30:00Z", "+05:30"), "2026-03-10");
+});
+test("cycle relationships align recovery and sleep; naps do not inflate sleep performance", () => {
+  const records = [
+    normalize("cycle", {
+      id: 42,
+      start: "2026-01-02T08:00:00Z",
+      timezone_offset: "-06:00",
+      score_state: "SCORED",
+      score: { strain: 12 },
+    }),
+    normalize("sleep", {
+      id: "sleep",
+      cycle_id: 42,
+      start: "2026-01-01T22:00:00Z",
+      end: "2026-01-02T06:00:00Z",
+      score_state: "SCORED",
+      score: {
+        sleep_performance_percentage: 90,
+        stage_summary: {
+          total_light_sleep_time_milli: 14400000,
+          total_slow_wave_sleep_time_milli: 7200000,
+          total_rem_sleep_time_milli: 3600000,
+        },
+      },
+    }),
+    normalize("sleep", {
+      id: "nap",
+      cycle_id: 42,
+      start: "2026-01-02T14:00:00Z",
+      end: "2026-01-02T15:00:00Z",
+      nap: true,
+      score_state: "SCORED",
+      score: { sleep_performance_percentage: 20 },
+    }),
+    normalize("recovery", {
+      cycle_id: 42,
+      sleep_id: "sleep",
+      created_at: "2026-01-03T00:00:00Z",
+      score_state: "SCORED",
+      score: { recovery_score: 80 },
+    }),
+  ];
+  const details = makeDetails(records);
+  const days = daily(details, "2026-01-02", "2026-01-03");
+  assert.equal(days[0].sleep, 90);
+  assert.equal(days[0].hours, 7);
+  assert.equal(days[0].recovery, 80);
+  assert.equal(days[1].recovery, null);
+});
+test("unscored and absent metrics are gaps, while zero is a valid score", () => {
+  const pending = detail(
+    normalize("cycle", {
+      id: 1,
+      start: "2026-01-01T12:00:00Z",
+      score_state: "PENDING_SCORE",
+      score: { strain: 20 },
+    }),
+  );
+  const zero = detail(
+    normalize("cycle", {
+      id: 2,
+      start: "2026-01-02T12:00:00Z",
+      score_state: "SCORED",
+      score: { strain: 0 },
+    }),
+  );
+  const days = daily([pending, zero], "2026-01-01", "2026-01-03");
+  assert.deepEqual(
+    days.map((d) => d.strain),
+    [null, 0, null],
+  );
+  assert.deepEqual(summarize(days).strain, { value: 0, count: 1 });
+});
+test("long-range buckets average strain rather than adding it", () => {
+  const records = Array.from({ length: 150 }, (_, i) =>
+    detail(
+      normalize("cycle", {
+        id: i,
+        start: new Date(Date.UTC(2025, 0, 1 + i)).toISOString(),
+        score_state: "SCORED",
+        score: { strain: 10 },
+      }),
+    ),
+  );
+  const result = bucket(daily(records, "2025-01-01", "2025-05-30"));
+  assert.equal(result.mode, "week");
+  assert.ok(result.points.every((p) => p.strain === 10));
+});
+test("public detail projection excludes arbitrary raw fields and identity data", () => {
+  const d = detail(
+    normalize("cycle", {
+      id: 1,
+      user_id: 123,
+      email: "private@example.test",
+      injected: "secret",
+      start: "2026-01-01T00:00:00Z",
+      score_state: "SCORED",
+      score: { strain: 12, private_token: "secret" },
+    }),
+  );
+  assert.ok(!JSON.stringify(d).includes("secret"));
+  assert.ok(!JSON.stringify(d).includes("user_id"));
+  assert.equal(d.metrics.strain, 12);
+});
+test("token encryption is randomized, authenticated, and rejects tampering", () => {
+  const key = "a".repeat(64);
+  const first = encrypt({ token: "private" }, key);
+  const second = encrypt({ token: "private" }, key);
+  assert.notEqual(first, second);
+  assert.deepEqual(decrypt(first, key), { token: "private" });
+  assert.throws(() => decrypt(first, "b".repeat(64)));
+});
+test("webhooks require the exact raw body, correct secret, and a fresh timestamp", () => {
+  const raw = '{"event":"sleep.updated"}';
+  const timestamp = String(Date.now());
+  const signature = createHmac("sha256", "test-secret")
+    .update(timestamp + raw)
+    .digest("base64");
+  assert.ok(validSignature(raw, timestamp, signature, "test-secret"));
+  assert.ok(!validSignature(raw + " ", timestamp, signature, "test-secret"));
+  assert.ok(
+    !validSignature(
+      raw,
+      timestamp,
+      signature,
+      "test-secret",
+      Date.now() + 360000,
+    ),
+  );
+  assert.ok(!validSignature(raw, timestamp, "short", "test-secret"));
+});
+test("CSV output escapes formulas, quotes, and embedded newlines", () => {
+  assert.equal(csvCell('=HYPERLINK("x")'), '"\'=HYPERLINK(""x"")"');
+  assert.equal(csvCell("two\nlines"), '"two\nlines"');
+});
