@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Run on the VPS as root after copying a built release and provisioning its secrets.
 set -euo pipefail
+umask 022
 release=${1:?Usage: activate.sh /opt/gallant-dashboard/releases/RELEASE}
 case "$release" in
 /opt/gallant-dashboard/releases/*) ;;
@@ -13,7 +14,11 @@ esac
 [[ -f /etc/gallant-dashboard.env && -f /etc/gallant-postgres.env ]]
 if ! id gallant >/dev/null 2>&1; then useradd --system --home-dir /opt/gallant-dashboard --shell /usr/sbin/nologin gallant; fi
 cd "$release"
-pnpm install --prod --frozen-lockfile
+pnpm install --prod --frozen-lockfile --package-import-method=copy
+# Cached pnpm package modes can be restrictive; only public release files live here.
+chown -R root:root "$release"
+chmod -R go-w,a+rX "$release"
+runuser -u gallant -- node --input-type=module -e 'await import("fastify"); await import("drizzle-orm");'
 docker compose -f deploy/compose.yml up -d --wait --wait-timeout 300
 if [[ -L /opt/gallant-dashboard/current ]]; then /opt/gallant-dashboard/current/deploy/backup.sh; fi
 # Node reads the protected environment directly; secrets never enter command arguments.
