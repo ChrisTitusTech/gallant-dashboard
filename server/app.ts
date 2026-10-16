@@ -1,3 +1,4 @@
+import { explorationHistory } from "./explore.js";
 import Fastify, { type FastifyRequest } from "fastify";
 import cookie from "@fastify/cookie";
 import rateLimit from "@fastify/rate-limit";
@@ -103,6 +104,7 @@ async function dashboard(member: typeof members.$inferSelect, query: unknown) {
   return {
     analytics: analyticsPayload(history, start, end),
     lifetime: lifetimeStats(history),
+    exploration: explorationHistory(history),
     name: member.name,
     start,
     end,
