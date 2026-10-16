@@ -20,7 +20,7 @@ Scope: the three recommended additions approved in conversation: sleep analytics
 
 ## Phase 3: acceptance
 
-Run typecheck, lint, unit tests, build, isolated PostgreSQL integration tests, and desktop/mobile browser tests. Inspect screenshots and review the final diff. Record validation and make coherent local commits. Publishing/deployment is outside this implementation request; no production or database changes are necessary. Rollback is reverting the application commits.
+Run typecheck, lint, unit tests, build, isolated PostgreSQL integration tests, and desktop/mobile browser tests. Inspect screenshots and review the final diff. Record validation and make coherent local commits. The user subsequently authorized automatic push and deployment for completed project work. Publish to main and use the existing release activation workflow; no database schema changes are necessary. Rollback is reverting the application commits.
 
 ## Progress
 
@@ -35,6 +35,6 @@ Run typecheck, lint, unit tests, build, isolated PostgreSQL integration tests, a
 - 12 distinct desktop/mobile browser cases pass, including the new views, out-of-range calendar drilldown, empty histories, future dates, and keyboard activation.
 - TypeScript, ESLint, production build, Prettier, and diff whitespace checks pass. The existing Vite bundle-size advisory remains (approximately 203 KB gzipped).
 - Synthetic desktop sleep/calendar and mobile recovery screenshots inspected. Mobile screenshots disable animations to capture the settled navigation state.
-- No dependency, database schema, server configuration, or OAuth permission changes. No production deployment or push performed for this task.
+- No dependency, database schema, server configuration, or OAuth permission changes. Publication and deployment follow the standing authorization in AGENTS.md, with live smoke checks for the new features.
 
 The sleep-need calculation now adds WHOOP's already-signed nap adjustment. The regression test first reproduced the incorrect 9.5-hour result for an 8.5-hour requirement. Field reference: https://developer.whoop.com/api/.

@@ -47,9 +47,44 @@ try {
       path: `/tmp/gallant-live-${label}.png`,
       fullPage: true,
     });
+    await expect(
+      page.getByRole("heading", { name: "Your year at a glance" }),
+    ).toBeVisible();
+    await page.getByLabel("Calendar metric").selectOption("strain");
+    const calendarDay = page
+      .getByRole("button", { name: /^\d{4}-\d{2}-\d{2}: Strain/ })
+      .and(page.locator(":enabled"));
+    await calendarDay.first().click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "30 days", exact: true }).click();
+    for (const [tab, heading] of [
+      ["Sleep", "Sleep stages"],
+      ["Recovery", "HRV and your baseline"],
+    ]) {
+      if (label === "mobile")
+        await page.getByRole("button", { name: "Open navigation" }).click();
+      await page.getByRole("button", { name: tab, exact: true }).click();
+      await expect(
+        page.getByRole("heading", { name: heading, exact: true }),
+      ).toBeVisible();
+      assert.equal(
+        await page.evaluate(
+          () =>
+            globalThis.document.documentElement.scrollWidth <=
+            globalThis.innerWidth,
+        ),
+        true,
+      );
+      await page.screenshot({
+        path: `/tmp/gallant-live-${tab.toLowerCase()}-${label}.png`,
+        fullPage: true,
+        animations: "disabled",
+      });
+    }
     assert.deepEqual(errors, []);
     console.log(
-      `Production ${label}: sign-in link, charts, ranges, details, layout, and JavaScript passed.`,
+      `Production ${label}: sign-in link, charts, ranges, details, yearly calendar, sleep/recovery analytics, layout, and JavaScript passed.`,
     );
     await page.close();
   }

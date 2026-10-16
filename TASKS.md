@@ -50,4 +50,4 @@ Implementation commits are published on `main`; GitHub Actions validation passed
 - [x] Yearly recovery/strain/sleep calendar with accessible daily drilldown
 - [x] Synthetic demo, privacy/isolation regression checks, desktop/mobile browser validation
 
-Implementation and acceptance details are in [the analytics plan](docs/analytics-plan.md). This enhancement is committed locally; production deployment and publication were not part of this implementation task.
+Implementation and acceptance details are in [the analytics plan](docs/analytics-plan.md). The user subsequently authorized push and deployment as the default completion workflow; see AGENTS.md.
