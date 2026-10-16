@@ -55,13 +55,11 @@ async function user(whoopId: string, name: string) {
     })
     .returning();
   const token = randomToken();
-  await db
-    .insert(sessions)
-    .values({
-      hash: hash(token),
-      memberId: m.id,
-      expires: new Date(Date.now() + 3600000),
-    });
+  await db.insert(sessions).values({
+    hash: hash(token),
+    memberId: m.id,
+    expires: new Date(Date.now() + 3600000),
+  });
   return { id: m.id, cookie: `gallant=${token}` };
 }
 before(async () => {
@@ -457,4 +455,18 @@ test("disconnect revokes sharing, cancels jobs, retains history; deletion remove
       .statusCode,
     200,
   );
+});
+
+test("production static serving keeps sharing pages uncached and rejects unknown paths", async () => {
+  const server = await buildApp({ serveStatic: true });
+  try {
+    const share = await server.inject("/share/" + "x".repeat(43));
+    assert.equal(share.statusCode, 200);
+    assert.equal(share.headers["cache-control"], "no-store");
+    assert.equal(share.headers["x-robots-tag"], "noindex, nofollow, noarchive");
+    assert.equal((await server.inject("/.env")).statusCode, 404);
+    assert.equal((await server.inject("/unexpected-page")).statusCode, 404);
+  } finally {
+    await server.close();
+  }
 });

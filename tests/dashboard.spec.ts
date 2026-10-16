@@ -53,6 +53,11 @@ test("demo charts support range changes, details, long history, and keyboard dia
   await expect(page.locator("tbody tr")).toHaveCount(30);
   await page.getByRole("button", { name: "Next", exact: true }).click();
   await expect(page.getByText("Page 2 of", { exact: false })).toBeVisible();
+  await page.getByLabel("Start date").fill("2019-01-01");
+  await expect(
+    page.getByText("Monthly averages", { exact: false }),
+  ).toBeVisible();
+  await expect(page.locator("tbody tr")).toHaveCount(30);
   await page.getByRole("button", { name: "30 days", exact: true }).click();
   expect(
     await page.evaluate(

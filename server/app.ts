@@ -195,16 +195,14 @@ export async function buildApp(
         },
         "Request failed",
       );
-    return reply
-      .code(status)
-      .send({
-        error:
-          status >= 500
-            ? "The request could not be completed."
-            : error instanceof Error
-              ? error.message
-              : "Request failed",
-      });
+    return reply.code(status).send({
+      error:
+        status >= 500
+          ? "The request could not be completed."
+          : error instanceof Error
+            ? error.message
+            : "Request failed",
+    });
   });
   app.get("/health", async () => ({ status: "ok" }));
   app.get("/ready", async (_req, reply) => {
@@ -225,14 +223,12 @@ export async function buildApp(
       const state = randomToken();
       const browser = randomToken();
       const member = await memberFor(req);
-      await db
-        .insert(oauthStates)
-        .values({
-          hash: hash(state),
-          browserHash: hash(browser),
-          memberId: member?.id,
-          expires: new Date(Date.now() + 600000),
-        });
+      await db.insert(oauthStates).values({
+        hash: hash(state),
+        browserHash: hash(browser),
+        memberId: member?.id,
+        expires: new Date(Date.now() + 600000),
+      });
       reply.setCookie("gallant-oauth", browser, {
         ...cookieOptions,
         maxAge: 600,
@@ -336,13 +332,11 @@ export async function buildApp(
           },
         })
         .returning();
-      await tx
-        .insert(sessions)
-        .values({
-          hash: hash(token),
-          memberId: member.id,
-          expires: new Date(Date.now() + 30 * 86400000),
-        });
+      await tx.insert(sessions).values({
+        hash: hash(token),
+        memberId: member.id,
+        expires: new Date(Date.now() + 30 * 86400000),
+      });
       const old = req.cookies[sessionName];
       if (old) await tx.delete(sessions).where(eq(sessions.hash, hash(old)));
       await enqueueSync(tx, member.id, "full");
@@ -595,11 +589,16 @@ export async function buildApp(
     await app.register(staticFiles, {
       root: resolve("dist/web"),
       wildcard: false,
+      cacheControl: false,
+      etag: false,
+      lastModified: false,
     });
     app.setNotFoundHandler((req, reply) => {
       if (
-        req.method !== "GET" ||
-        /^\/(api|auth|callback|health|ready)(\/|$)/.test(req.url)
+        !["GET", "HEAD"].includes(req.method) ||
+        !/^\/(?:demo|privacy|share\/[A-Za-z0-9_-]{40,100})\/?$/.test(
+          req.url.split("?")[0],
+        )
       )
         return reply.code(404).send({ error: "Not found" });
       return reply.sendFile("index.html");

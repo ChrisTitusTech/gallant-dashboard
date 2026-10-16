@@ -1239,3 +1239,8 @@ dd {
   font-size: 22px;
   font-weight: 500;
 }
+.comparison-note {
+  font-size: 10px;
+  color: #829ca7;
+  margin: -15px 0 26px;
+}

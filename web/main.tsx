@@ -544,6 +544,12 @@ function App() {
                       unit="%"
                     />
                   </div>
+                  <p className="comparison-note">
+                    Changes compare with {dateLabel(data.previousStart)} to{" "}
+                    {dateLabel(data.previousEnd)},{" "}
+                    {data.previousEnd.slice(0, 4)}. Both periods use available
+                    scored days.
+                  </p>
                   {!data.earliest && (
                     <div className="empty">
                       <Activity size={28} />
@@ -1008,6 +1014,7 @@ function MetricCard({
   unit: string;
 }) {
   const current = data.summary[metric];
+  if (metric === "recovery") color = recoveryColor(current?.value ?? null);
   const prev = data.previous[metric];
   const delta =
     current?.value != null && prev?.value != null
