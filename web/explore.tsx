@@ -212,7 +212,16 @@ export function WorkoutExplorer({
                 <CartesianGrid stroke="#26353d" />
                 <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                 <YAxis />
-                <Tooltip />
+                <Tooltip
+                  formatter={(value) =>
+                    fmt(typeof value === "number" ? value : null)
+                  }
+                  contentStyle={{
+                    background: "#142127",
+                    border: "1px solid #46565f",
+                    borderRadius: 6,
+                  }}
+                />
                 <Bar
                   isAnimationActive={false}
                   dataKey="hours"
@@ -490,7 +499,16 @@ export function YearComparison({ data }: { data: Dashboard }) {
                       <CartesianGrid stroke="#26353d" />
                       <XAxis dataKey="month" />
                       <YAxis />
-                      <Tooltip />
+                      <Tooltip
+                        formatter={(value) =>
+                          fmt(typeof value === "number" ? value : null)
+                        }
+                        contentStyle={{
+                          background: "#142127",
+                          border: "1px solid #46565f",
+                          borderRadius: 6,
+                        }}
+                      />
                       <Legend />
                       <Line
                         isAnimationActive={false}

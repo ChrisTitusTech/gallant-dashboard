@@ -121,6 +121,7 @@ try {
       );
       await panel.screenshot({
         path: `/tmp/gallant-live-${tab.replaceAll(" ", "-")}-${label}.png`,
+        animations: "disabled",
       });
     }
     assert.deepEqual(errors, []);
