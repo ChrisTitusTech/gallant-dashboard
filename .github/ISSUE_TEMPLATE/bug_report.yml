@@ -1,0 +1,40 @@
+name: Bug report
+description: Report a reproducible dashboard problem.
+body:
+  - type: markdown
+    attributes:
+      value: "Do not include health records, credentials, callback query strings, or sharing links. Report vulnerabilities privately using the repository Security tab."
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the actual and expected behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include the page path without private identifiers or query strings.
+    validations:
+      required: true
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: Deployment
+      options:
+        - Hosted dashboard
+        - Self-hosted
+        - Local development or demo
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Browser, OS, and revision
+      description: Include the commit hash for self-hosted or local installations.
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Redacted logs or synthetic screenshots
+      description: Remove credentials and personal data before attaching evidence.

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Private security report
+    url: https://github.com/ChrisTitusTech/gallant-dashboard/security/advisories/new
+    about: Report vulnerabilities privately. Do not include credentials or real health records.
+  - name: Support and troubleshooting
+    url: https://github.com/ChrisTitusTech/gallant-dashboard/blob/main/SUPPORT.md
+    about: Check sign-in, imports, sharing, and self-hosted troubleshooting guidance.

@@ -1,7 +1,36 @@
 # Gallant Dashboard
 
-Independent WHOOP history dashboard at https://whoop.3spinningplates.com.
-All development lives here. The existing 3plates repository, accounts, and database are independent.
+[![Validate dashboard](https://github.com/ChrisTitusTech/gallant-dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/ChrisTitusTech/gallant-dashboard/actions/workflows/ci.yml)
+
+Your WHOOP strain, sleep, and recovery history in one private dashboard. Explore trends, compare periods, export your records, and optionally share a read-only view.
+
+**[Open dashboard](https://whoop.3spinningplates.com/)** · **[Try the demo](https://whoop.3spinningplates.com/demo)** · **[Report a bug](https://github.com/ChrisTitusTech/gallant-dashboard/issues/new/choose)**
+
+![Gallant Dashboard showing strain, sleep, recovery, and historical comparisons with synthetic demo data](docs/images/dashboard.png)
+
+_The preview uses synthetic data. No member health records are included._
+
+## Get started
+
+1. Open the dashboard and choose **Connect your WHOOP**.
+2. Sign in to WHOOP and approve access. Each member gets their own private dashboard.
+3. Allow the initial history import to finish, then choose a date range to explore your records.
+4. Use account controls to export data, manage sharing, disconnect WHOOP, or delete your account.
+
+The first import fetches all history available through the WHOOP API. Larger histories can take longer because imports respect API request limits and resume automatically.
+
+Gallant is an independent project, not an official WHOOP product. WHOOP is a trademark of its respective owner. The existing 3plates application, accounts, and database are independent.
+
+## Project guide
+
+- [Contributing and development workflow](CONTRIBUTING.md)
+- [Security and private vulnerability reports](SECURITY.md)
+- [Support and troubleshooting](SUPPORT.md)
+- [Community guidelines](CODE_OF_CONDUCT.md)
+- [Architecture](docs/architecture.md)
+- [Implementation and acceptance status](TASKS.md)
+
+Setup, validation, deployment, backup, restore, and API instructions follow below.
 
 ## Features
 
@@ -20,6 +49,8 @@ Requires Node 24, pnpm 9.15.4, and PostgreSQL 16. Install pnpm with `npm install
 
 ```bash
 pnpm install --frozen-lockfile
+# Create a configuration only if one does not already exist:
+test -f .env || cp .env.example .env
 ```
 
 Keep the existing `.env` credentials. Add the other variables documented in `.env.example`, using a separate random `TOKEN_KEY` from `openssl rand -hex 32`. Never replace a deployed encryption key without re-encrypting stored tokens.

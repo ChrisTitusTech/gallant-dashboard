@@ -7,7 +7,8 @@
 - [x] Automated unit, database, and browser acceptance
 - [x] Independent production deployment, HTTPS, backups, restore verification
 - [ ] Confirm v2 webhook registration in the WHOOP Developer Dashboard
-- [ ] Chris authorizes WHOOP; compare recent and historical records with WHOOP
+- [x] Member authorizes WHOOP; all six initial imports complete without errors
+- [ ] Compare representative recent and historical records with WHOOP
 
 Development remains entirely in this repository. Existing 3plates application and database are independent.
 No credentials or real member records may be committed. Public sharing is opt-in and includes full dashboard details, never raw payloads or account information.
@@ -24,7 +25,7 @@ No credentials or real member records may be committed. Public sharing is opt-in
 - Database and API listen only on `127.0.0.1:5433` and `127.0.0.1:3100` respectively.
 - Production environment files are root-owned mode 600. A mode-600 ignored `.env.production` is the local recovery copy; original `.env` remains untouched. Tracked-file secret scan passed.
 - Caddy serves the WHOOP hostname over valid HTTPS. Existing 3plates and forum routes still return HTTP 200; 3plates API health passes.
-- WHOOP accepts the authorization redirect and routes to its login flow with the exact callback and offline scope. No real authorization code has yet been exchanged.
+- WHOOP accepts the authorization redirect and routes to its login flow with the exact callback and offline scope. Subsequent live sign-in and all six initial imports succeeded.
 - Anonymous private-data and export requests return 401. Missing share links return 404; shared HTML and APIs use no-store and noindex headers.
 - Nightly backup timer enabled; backup service executed successfully. A full database dump was restored to a temporary scratch database and validated, then that scratch database was removed. At the time of validation, production had zero members and zero imported records.
 
@@ -38,6 +39,6 @@ Static serving originally replaced the application's no-store header. This was c
 
 No connected browser session was available to edit the WHOOP Developer Dashboard. Verify its v2 webhook URL is `https://whoop.3spinningplates.com/api/webhooks/whoop`, and its privacy URL is `https://whoop.3spinningplates.com/privacy`. The OAuth callback is `https://whoop.3spinningplates.com/callback`.
 
-Chris must connect at https://whoop.3spinningplates.com. Then verify the four historical collections reach their final pages, compare representative dates against WHOOP, and confirm a real webhook updates the dashboard. Fixture tests cannot prove actual account history coverage or webhook registration.
+Live authorization and initial history imports are complete. Compare representative dates against WHOOP and confirm a real webhook updates the dashboard. Fixture tests cannot prove actual account history coverage or webhook registration.
 
-GitHub CI is configured but has not run remotely because no push was requested. Commits remain local. Backups are on the VPS; off-server backup transport is not configured.
+Implementation commits are published on `main`; GitHub Actions validation passed for revision `af36345`. Backups are on the VPS; off-server backup transport is not configured.
