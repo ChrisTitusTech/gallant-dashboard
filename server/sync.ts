@@ -71,7 +71,7 @@ export async function upsert(
     });
 }
 const pageSchema = z.object({
-  records: z.array(z.record(z.any())),
+  records: z.array(z.record(z.string(), z.any())),
   next_token: z.string().nullish(),
 });
 export async function processJob(
