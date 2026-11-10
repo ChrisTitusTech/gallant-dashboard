@@ -10,12 +10,11 @@ fi
 if [[ ! -f /var/lib/gallant-ops/restore-success ]] || [[ $(find /var/lib/gallant-ops/restore-success -mmin +11520 -print) ]]; then
 	issues+=("No successful restore verification within eight days")
 fi
+# Off-server copies are optional; monitor freshness only when configured.
 if [[ -f /etc/gallant-backup-offsite.env ]]; then
 	if [[ ! -f /var/lib/gallant-ops/offsite-success ]] || [[ $(find /var/lib/gallant-ops/offsite-success -mmin +2160 -print) ]]; then
 		issues+=("No off-server backup within 36 hours")
 	fi
-else
-	issues+=("Off-server backups require configuration")
 fi
 if failures=$(docker exec gallant-postgres psql -U gallant -d gallant -Atqc "SELECT count(*) FROM members m WHERE connected AND (last_sync IS NULL OR last_sync < now() - interval '48 hours' OR EXISTS (SELECT 1 FROM jobs j WHERE j.member_id=m.id AND status='failed'))"); then
 	[[ "$failures" == 0 ]] || issues+=("Connected accounts have failed imports or stale synchronization")

@@ -199,7 +199,7 @@ systemctl start gallant-monitor.service
 cat /var/lib/gallant-ops/status
 ```
 
-The monitor reports readiness failures, missing backups older than 36 hours, missing restore verification older than eight days, and connected accounts with failed imports or no sync in 48 hours. It deliberately reports an incomplete configuration when off-server backup is absent. Generic status contains no member names, tokens, or health measurements.
+The monitor reports readiness failures, missing backups older than 36 hours, missing restore verification older than eight days, and connected accounts with failed imports or no sync in 48 hours. Off-server backups are optional: when `/etc/gallant-backup-offsite.env` is absent, local backups and restore verification remain monitored without requiring off-server storage. When configured, off-server copies must also be newer than 36 hours. Generic status contains no member names, tokens, or health measurements.
 
 To activate encrypted off-server copies, install `age` and `rsync` on the VPS. Generate and securely retain an age private identity **off the VPS**; only its public recipient belongs in the root-owned, mode-600 `/etc/gallant-backup-offsite.env`:
 
